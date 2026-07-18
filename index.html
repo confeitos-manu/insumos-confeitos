@@ -331,7 +331,7 @@
         render();
       } catch (err) {
         console.error(err);
-        state.errorMsg = "Não consegui ler essa nota. Tenta tirar a foto de novo, bem enquadrada e sem reflexo.";
+        state.errorMsg = "Não consegui ler essa nota: " + (err && err.message ? err.message : "erro desconhecido") + " — tenta tirar a foto de novo, bem enquadrada e sem reflexo.";
         state.step = "error";
         render();
       }
