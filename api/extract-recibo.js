@@ -44,7 +44,10 @@ export default async function handler(req, res) {
               ],
             },
           ],
-          generationConfig: { responseMimeType: "application/json" },
+          generationConfig: {
+            responseMimeType: "application/json",
+            thinkingConfig: { thinkingBudget: 0 },
+          },
         }),
       }
     );
@@ -52,22 +55,34 @@ export default async function handler(req, res) {
     const data = await geminiRes.json();
 
     if (!geminiRes.ok) {
-      console.error("Erro do Gemini:", data);
-      res.status(502).json({ error: "Falha ao ler a nota", detalhe: data?.error?.message });
+      console.error("Erro do Gemini:", JSON.stringify(data));
+      res.status(502).json({ error: data?.error?.message || "Falha ao ler a nota" });
       return;
     }
 
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const textPart = parts.find((p) => p.text && !p.thought);
+    const text = textPart ? textPart.text : parts.map((p) => p.text).filter(Boolean).join("");
+
     if (!text) {
-      res.status(502).json({ error: "Resposta vazia do Gemini" });
+      console.error("Resposta sem texto:", JSON.stringify(data));
+      const finishReason = data?.candidates?.[0]?.finishReason;
+      res.status(502).json({ error: `Resposta vazia do Gemini (motivo: ${finishReason || "desconhecido"})` });
       return;
     }
 
     const clean = text.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(clean);
+    let parsed;
+    try {
+      parsed = JSON.parse(clean);
+    } catch (parseErr) {
+      console.error("Falha ao parsear JSON:", text);
+      res.status(502).json({ error: "A IA não devolveu um JSON válido", detalhe: text.slice(0, 300) });
+      return;
+    }
     res.status(200).json(parsed);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erro ao processar a nota", detalhe: String(err) });
+    res.status(500).json({ error: "Erro ao processar a nota: " + String(err && err.message ? err.message : err) });
   }
 }
