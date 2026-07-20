@@ -23,7 +23,10 @@ export default async function handler(req, res) {
     "Você lê fotos de notas fiscais de mercado brasileiras e extrai os itens comprados. " +
     "Responda SOMENTE com um JSON válido, sem markdown, sem texto antes ou depois, " +
     'exatamente neste formato: {"loja": string ou null, "data": string ou null, "items": ' +
-    '[{"nome": string, "quantidade": number, "precoUnitario": number, "precoTotal": number}]}. ' +
+    '[{"codigo": string ou null, "nome": string, "quantidade": number, "precoUnitario": number, "precoTotal": number}]}. ' +
+    "O campo 'codigo' é o código do produto que aparece na coluna 'Código' da nota (geralmente um " +
+    "número, pode ter vários dígitos) — copie exatamente como está impresso, sem inventar nem arredondar. " +
+    "Se a nota não tiver essa coluna, use null. " +
     "Expanda abreviações de produtos para nomes legíveis e SEMPRE no mesmo padrão de escrita " +
     "para o mesmo produto (ex: 'CHOC PO 500G' vira 'Chocolate em Pó 500g'). Ignore linhas de " +
     "imposto, forma de pagamento, troco e totais gerais — inclua apenas os produtos. Se não " +
