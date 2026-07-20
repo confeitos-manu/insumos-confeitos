@@ -347,6 +347,7 @@
 
         const parsedItems = (result.items || []).map((it, idx) => ({
           id: `${Date.now()}-${idx}`,
+          codigo: it.codigo ? String(it.codigo).trim() : null,
           nome: it.nome || "",
           quantidade: it.quantidade ?? 1,
           precoUnitario: it.precoUnitario ?? 0,
@@ -406,7 +407,7 @@
       const total = selected.reduce((s, it) => s + (Number(it.precoTotal) || 0), 0);
       const { error: e1 } = await sb.from("notas").insert({ id: notaId, loja: state.loja || "Mercado", data_compra: state.dataCompra || todayLabel(), total });
       if (e1) { console.error(e1); toast("Erro ao salvar a nota"); return; }
-      const itensParaInserir = selected.map((it) => ({ nota_id: notaId, nome: it.nome, quantidade: it.quantidade, preco_unitario: it.precoUnitario, preco_total: it.precoTotal }));
+      const itensParaInserir = selected.map((it) => ({ nota_id: notaId, codigo: it.codigo, nome: it.nome, quantidade: it.quantidade, preco_unitario: it.precoUnitario, preco_total: it.precoTotal }));
       const { error: e2 } = await sb.from("itens_nota").insert(itensParaInserir);
       if (e2) { console.error(e2); toast("Erro ao salvar os itens"); return; }
       resetCapture();
@@ -441,14 +442,24 @@
       for (const nota of state.notas) {
         const ts = timestampFromNotaId(nota.id);
         for (const it of nota.items) {
+          const codigo = it.codigo ? String(it.codigo).trim() : "";
           const variantKey = normalize(it.nome);
-          if (!variantKey) continue;
-          const canonicalNome = state.aliases[variantKey] || it.nome;
-          const groupKey = normalize(canonicalNome);
-          if (!map.has(groupKey)) map.set(groupKey, { nome: canonicalNome, ocorrencias: [], variantes: new Map() });
+          if (!variantKey && !codigo) continue;
+
+          let groupKey;
+          if (codigo) {
+            groupKey = `cod:${codigo}`;
+          } else {
+            const canonicalNome = state.aliases[variantKey] || it.nome;
+            groupKey = `nome:${normalize(canonicalNome)}`;
+          }
+
+          if (!map.has(groupKey)) map.set(groupKey, { nome: it.nome, codigo: codigo || null, ultimoTs: -Infinity, ocorrencias: [], variantes: new Map() });
           const grupo = map.get(groupKey);
           grupo.ocorrencias.push({ loja: nota.loja, data: nota.data_compra, ts, precoUnitario: Number(it.preco_unitario) || 0 });
-          grupo.variantes.set(variantKey, it.nome);
+          if (variantKey) grupo.variantes.set(variantKey, it.nome);
+          // mantém sempre o nome da ocorrência mais recente (nomes podem ter sido lidos com pequenas variações)
+          if (ts >= grupo.ultimoTs) { grupo.nome = it.nome; grupo.ultimoTs = ts; }
         }
       }
       const list = Array.from(map.entries()).map(([groupKey, p]) => {
@@ -457,6 +468,7 @@
         return {
           groupKey,
           nome: p.nome,
+          codigo: p.codigo,
           ocorrencias: [...p.ocorrencias].sort((a, b) => b.ts - a.ts),
           variantes: Array.from(p.variantes.entries()).map(([k, nome]) => ({ key: k, nome })),
           min: precos.length ? Math.min(...precos) : 0,
@@ -466,7 +478,7 @@
         };
       });
       const q = normalize(state.produtoQuery);
-      const filtered = q ? list.filter((p) => normalize(p.nome).includes(q)) : list;
+      const filtered = q ? list.filter((p) => normalize(p.nome).includes(q) || (p.codigo || "").includes(state.produtoQuery.trim())) : list;
       return filtered.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
     }
 
@@ -754,7 +766,7 @@
                 ${state.selectMode ? `<input type="checkbox" class="produto-checkbox" ${selecionado ? "checked" : ""} readonly />` : ""}
                 <div style="flex:1">
                   <div class="produto-nome">${esc(p.nome)}</div>
-                  <div class="produto-meta">${p.compras} compra${p.compras > 1 ? "s" : ""} registrada${p.compras > 1 ? "s" : ""}${p.variantes.length > 1 ? ` · ${p.variantes.length} nomes unidos` : ""}</div>
+                  <div class="produto-meta">${p.codigo ? `cód. ${esc(p.codigo)} · ` : ""}${p.compras} compra${p.compras > 1 ? "s" : ""} registrada${p.compras > 1 ? "s" : ""}${p.variantes.length > 1 ? ` · ${p.variantes.length} nomes unidos` : ""}</div>
                 </div>
                 ${!state.selectMode ? `
                   <div class="produto-precos">
