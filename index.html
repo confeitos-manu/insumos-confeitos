@@ -62,6 +62,7 @@
   .item-fields { width: 100%; }
   .item-name { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; border: none; background: transparent; width: 100%; margin-bottom: 6px; border-bottom: 1px solid transparent; }
   .item-name:focus { border-bottom: 1px solid var(--caramel); outline: none; }
+  .item-codigo { font-family: 'Space Mono', monospace; font-size: 10px; color: #B0A390; margin: -3px 0 6px; }
   .item-numbers { display: flex; gap: 8px; align-items: center; font-family: 'Space Mono', monospace; font-size: 12px; color: #7A6A5A; }
   .item-numbers input { font-family: 'Space Mono', monospace; font-size: 12px; border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; width: 54px; background: #FCFAF5; }
   .item-numbers .x { color: var(--line); }
@@ -112,6 +113,7 @@
   .produto-ocorrencias .line { display: flex; justify-content: space-between; padding: 4px 0; color: #7A6A5A; }
   .produto-ocorrencias .price { font-family: 'Space Mono', monospace; }
   .variantes-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .btn-enviar-precificacao { display: block; width: 100%; margin-top: 12px; background: rgba(124,139,111,0.1); border: 1px solid var(--sage); color: var(--sage); border-radius: 8px; padding: 9px; font-size: 12px; font-weight: 600; cursor: pointer; }
   .chip { display: inline-flex; align-items: center; gap: 5px; background: #F2EBDD; border-radius: 20px; padding: 4px 6px 4px 10px; font-size: 11px; color: #7A6A5A; }
   .chip button { background: none; border: none; color: #B0A390; font-size: 13px; cursor: pointer; padding: 0 3px; }
 
@@ -176,6 +178,12 @@
     const SUPABASE_ANON_KEY = "sb_publishable_z_K62mgmqtJAQjFWWTrkDg__kO5cdJG";
     const BUCKET = "Insumos";
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Banco de dados do Catálogo / Precificação — usado só pra mandar o
+    // preço mais recente de um produto pra lá quando você pede.
+    const PRECIFICACAO_SUPABASE_URL = "https://jhjchfesrxnpbabhylxs.supabase.co";
+    const PRECIFICACAO_ANON_KEY = "sb_publishable_cz83j5R_8j0yUaWFhFVMuw_m_QqfCoi";
+    const sbPrecificacao = createClient(PRECIFICACAO_SUPABASE_URL, PRECIFICACAO_ANON_KEY);
 
     const CATEGORIAS = ["Ingrediente", "Embalagem", "Flor", "Produto pronto", "Outro"];
 
@@ -601,6 +609,35 @@
     }
 
     // ---------- backup ----------
+    // ---------- envio pro app de precificação ----------
+    async function enviarParaPrecificacao(nome, preco) {
+      try {
+        const { data: existentes, error: e1 } = await sbPrecificacao
+          .from("insumos")
+          .select("id")
+          .ilike("nome", nome.trim());
+        if (e1) throw e1;
+
+        if (existentes && existentes.length > 0) {
+          const { error: e2 } = await sbPrecificacao
+            .from("insumos")
+            .update({ preco, updated_at: new Date().toISOString() })
+            .eq("id", existentes[0].id);
+          if (e2) throw e2;
+          toast(`Preço de "${nome}" atualizado na precificação!`);
+        } else {
+          const { error: e3 } = await sbPrecificacao
+            .from("insumos")
+            .insert({ nome: nome.trim(), preco, unidade: "unidade" });
+          if (e3) throw e3;
+          toast(`"${nome}" cadastrado na precificação!`);
+        }
+      } catch (err) {
+        console.error(err);
+        toast("Erro ao enviar pra precificação");
+      }
+    }
+
     function exportarBackup() {
       const backup = { exportadoEm: new Date().toISOString(), notas: state.notas, produtoAliases: state.aliases, estoque: state.estoque };
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
@@ -688,6 +725,7 @@
                     <input type="checkbox" ${it.incluir ? "checked" : ""} onchange="app.toggleItem('${it.id}')" />
                     <div class="item-fields">
                       <input class="item-name" value="${esc(it.nome)}" oninput="app.updateItemField('${it.id}','nome',this.value)" />
+                      ${it.codigo ? `<div class="item-codigo">cód. ${esc(it.codigo)}</div>` : ""}
                       <div class="item-numbers">
                         <input type="number" step="any" value="${it.quantidade}" oninput="app.updateItemField('${it.id}','quantidade',this.value)" />
                         <span class="x">×</span>
@@ -735,8 +773,14 @@
     }
 
     function renderProdutos() {
+      const html = `<input class="search-box" placeholder="Buscar produto..." value="${esc(state.produtoQuery)}" oninput="app.setProdutoQuery(this.value)" />
+        <div id="produtos-resultados">${renderProdutosResultados()}</div>`;
+      return html;
+    }
+
+    function renderProdutosResultados() {
       const produtos = produtosAgrupados();
-      let html = `<input class="search-box" placeholder="Buscar produto..." value="${esc(state.produtoQuery)}" oninput="app.setProdutoQuery(this.value)" />`;
+      let html = "";
 
       if (produtos.length > 1) {
         html += `<div class="merge-toolbar">`;
@@ -781,12 +825,14 @@
                     <div class="variantes-chips">
                       ${p.variantes.map((v) => `<span class="chip">${esc(v.nome)}<button onclick="event.stopPropagation(); app.removerVariante('${v.key}')" title="desfazer união">×</button></span>`).join("")}
                     </div>` : ""}
+                  <button class="btn-enviar-precificacao" onclick="event.stopPropagation(); app.enviarParaPrecificacao('${esc(p.nome).replace(/'/g, "\\'")}', ${p.ultimoPreco})">↗ enviar pro app de precificação</button>
                 </div>` : ""}
             </div>`;
         }
       }
       return html;
     }
+
 
     function renderEstoque() {
       const paradosCount = state.estoque.filter((e) => e.status === "parado").length;
@@ -914,9 +960,14 @@
       setLoja: (v) => { state.loja = v; },
       updateItemField,
       toggleItem,
+      enviarParaPrecificacao,
       confirmSave,
       deleteNota,
-      setProdutoQuery: (v) => { state.produtoQuery = v; render(); },
+      setProdutoQuery: (v) => {
+        state.produtoQuery = v;
+        const container = document.getElementById("produtos-resultados");
+        if (container) container.innerHTML = renderProdutosResultados();
+      },
       toggleProdutoAberto: (k) => { state.produtoAberto = state.produtoAberto === k ? null : k; render(); },
       setSelectMode: (v) => { state.selectMode = v; state.selecionados = []; render(); },
       cancelarSelecao: () => { state.selectMode = false; state.selecionados = []; render(); },
