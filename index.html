@@ -97,6 +97,13 @@
   .merge-modal { background: #fff; border-radius: 14px 14px 0 0; padding: 20px; width: 100%; }
   .merge-modal h4 { font-family: 'Fraunces', serif; font-size: 16px; margin: 0 0 12px; }
   .merge-modal input { width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--line); font-family: 'Inter', sans-serif; font-size: 14px; margin-bottom: 4px; background: #FCFAF5; }
+  .enviar-preco-original { font-size: 12px; color: #9A8A78; margin: -4px 0 14px; }
+  .enviar-label { display: block; font-size: 12px; color: var(--cocoa); margin-bottom: 8px; font-weight: 500; }
+  .divisor-quick { display: flex; gap: 6px; margin-bottom: 10px; }
+  .divisor-quick button { flex: 1; padding: 9px 4px; border-radius: 8px; border: 1px solid var(--line); background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--cocoa); }
+  .divisor-quick button.ativo { background: var(--sage); color: #fff; border-color: var(--sage); }
+  .enviar-preview-box { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--sage); font-weight: 700; background: rgba(124,139,111,0.08); border-radius: 8px; padding: 10px 12px; margin: 10px 0 4px; }
+  .enviar-nota-segura { font-size: 11px; color: #9A8A78; margin: 8px 0 16px; line-height: 1.4; }
 
   .produto-card { background: #fff; border-radius: 10px; box-shadow: 0 4px 14px rgba(59,42,32,0.06); padding: 14px 16px; margin-bottom: 10px; cursor: pointer; }
   .produto-card.selecionavel { border: 1.5px solid var(--line); }
@@ -205,6 +212,11 @@
       selecionados: [],
       mergeModalOpen: false,
       mergeNomeInput: "",
+      enviarModalOpen: false,
+      enviarNomeAlvo: "",
+      enviarPrecoOriginal: 0,
+      enviarDivisor: 1,
+      enviarPrecoFinal: 0,
       showEstoqueForm: false,
       editandoEstoqueId: null,
       fotoStatus: "idle",
@@ -610,6 +622,36 @@
 
     // ---------- backup ----------
     // ---------- envio pro app de precificação ----------
+    function abrirModalEnviar(nome, preco) {
+      state.enviarNomeAlvo = nome;
+      state.enviarPrecoOriginal = preco;
+      state.enviarDivisor = 1;
+      state.enviarPrecoFinal = preco;
+      state.enviarModalOpen = true;
+      render();
+    }
+    function fecharModalEnviar() {
+      state.enviarModalOpen = false;
+      render();
+    }
+    function setEnviarDivisor(v) {
+      state.enviarDivisor = Math.max(1, Number(v) || 1);
+      state.enviarPrecoFinal = state.enviarPrecoOriginal / state.enviarDivisor;
+      const input = document.getElementById("enviar-preco-input");
+      if (input) input.value = state.enviarPrecoFinal.toFixed(2);
+      const divisorInput = document.getElementById("enviar-divisor-input");
+      if (divisorInput && Number(divisorInput.value) !== state.enviarDivisor) divisorInput.value = state.enviarDivisor;
+    }
+    function setEnviarPrecoManual(v) {
+      // edição direta do valor final — não mexe na nota original, só no que será enviado
+      state.enviarPrecoFinal = Number(v) || 0;
+    }
+    async function confirmarEnvio() {
+      await enviarParaPrecificacao(state.enviarNomeAlvo, state.enviarPrecoFinal);
+      state.enviarModalOpen = false;
+      render();
+    }
+
     async function enviarParaPrecificacao(nome, preco) {
       try {
         const { data: existentes, error: e1 } = await sbPrecificacao
@@ -666,6 +708,7 @@
         </div>
         <div class="content">${renderTabContent()}</div>
         ${state.mergeModalOpen ? renderMergeModal() : ""}
+        ${state.enviarModalOpen ? renderEnviarModal() : ""}
         <div class="tabbar">
           <button class="${state.tab === "nova" ? "active" : ""}" onclick="app.setTab('nova')">📸<br>Nova nota</button>
           <button class="${state.tab === "notas" ? "active" : ""}" onclick="app.setTab('notas')">🧾<br>Notas</button>
@@ -825,7 +868,7 @@
                     <div class="variantes-chips">
                       ${p.variantes.map((v) => `<span class="chip">${esc(v.nome)}<button onclick="event.stopPropagation(); app.removerVariante('${v.key}')" title="desfazer união">×</button></span>`).join("")}
                     </div>` : ""}
-                  <button class="btn-enviar-precificacao" onclick="event.stopPropagation(); app.enviarParaPrecificacao('${esc(p.nome).replace(/'/g, "\\'")}', ${p.ultimoPreco})">↗ enviar pro app de precificação</button>
+                  <button class="btn-enviar-precificacao" onclick="event.stopPropagation(); app.abrirModalEnviar('${esc(p.nome).replace(/'/g, "\\'")}', ${p.ultimoPreco})">↗ enviar pro app de precificação</button>
                 </div>` : ""}
             </div>`;
         }
@@ -953,6 +996,31 @@
         </div>`;
     }
 
+    function renderEnviarModal() {
+      return `
+        <div class="merge-modal-backdrop" onclick="app.fecharModalEnviar()">
+          <div class="merge-modal" onclick="event.stopPropagation()">
+            <h4>Enviar "${esc(state.enviarNomeAlvo)}"</h4>
+            <p class="enviar-preco-original">Preço cadastrado: ${brl(state.enviarPrecoOriginal)}</p>
+            <label class="enviar-label">Esse preço é de um pacote/caixa? Divide por quantas partes:</label>
+            <div class="divisor-quick">
+              <button type="button" class="${state.enviarDivisor === 1 ? "ativo" : ""}" onclick="app.setEnviarDivisor(1)">1 (preço inteiro)</button>
+              <button type="button" class="${state.enviarDivisor === 2 ? "ativo" : ""}" onclick="app.setEnviarDivisor(2)">2</button>
+              <button type="button" class="${state.enviarDivisor === 3 ? "ativo" : ""}" onclick="app.setEnviarDivisor(3)">3</button>
+              <button type="button" class="${state.enviarDivisor === 4 ? "ativo" : ""}" onclick="app.setEnviarDivisor(4)">4</button>
+            </div>
+            <input id="enviar-divisor-input" type="number" min="1" step="1" value="${state.enviarDivisor}" oninput="app.setEnviarDivisor(this.value)" placeholder="outro número..." />
+            <label class="enviar-label" style="margin-top:14px">Valor que será enviado (pode ajustar à mão):</label>
+            <input id="enviar-preco-input" type="number" step="any" value="${state.enviarPrecoFinal.toFixed(2)}" oninput="app.setEnviarPrecoManual(this.value)" />
+            <p class="enviar-nota-segura">Isso não altera nada nas suas notas cadastradas — só o valor enviado pra precificação.</p>
+            <div class="action-row">
+              <button class="btn btn-ghost" onclick="app.fecharModalEnviar()">Cancelar</button>
+              <button class="btn btn-primary" onclick="app.confirmarEnvio()">Enviar</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
     // ---------- ponte pra ações do HTML (onclick etc) ----------
     window.app = {
       handleFile,
@@ -961,6 +1029,11 @@
       updateItemField,
       toggleItem,
       enviarParaPrecificacao,
+      abrirModalEnviar,
+      fecharModalEnviar,
+      setEnviarDivisor,
+      setEnviarPrecoManual,
+      confirmarEnvio,
       confirmSave,
       deleteNota,
       setProdutoQuery: (v) => {
