@@ -740,6 +740,8 @@
       enviarPrecoFinal: 0,
       fotoStatus: "idle",
       confirmDuplicata: false,
+      editandoDataNota: null,
+      manualItens: [],
     };
 
     // ---------- helpers ----------
@@ -956,9 +958,11 @@
       state.step = "capture";
       state.photoPreview = null;
       state.items = [];
+      state.manualItens = [];
       state.loja = "";
       state.dataCompra = "";
       state.errorMsg = "";
+      state.confirmDuplicata = false;
     }
 
     async function deleteNota(id) {
@@ -1178,7 +1182,54 @@
             <h3>Tirar foto da nota</h3>
             <p>Boa luz e a nota bem esticada ajudam bastante</p>
             <input type="file" accept="image/*" capture="environment" onchange="app.handleFile(event)" style="display:none" />
-          </label>`;
+          </label>
+          <div style="text-align:center; margin-top:16px;">
+            <button class="btn-link" onclick="app.iniciarManual()" style="font-size:13px;">✏️ Lançar manualmente (Shopee, etc.)</button>
+          </div>`;
+      }
+      if (state.step === "manual") {
+        const itens = state.manualItens || [];
+        const total = itens.reduce((s, it) => s + (it.quantidade * it.precoUnitario), 0);
+        return `
+          <div>
+            <h3 style="font-family:'Fraunces',serif; font-size:17px; margin:0 0 14px;">📝 Lançamento manual</h3>
+            <div class="receipt">
+              <div class="receipt-edge"></div>
+              <div class="receipt-inner">
+                <div class="receipt-meta">
+                  <input value="${esc(state.loja)}" oninput="app.setLoja(this.value)" placeholder="Nome da loja (ex: Shopee)" />
+                  <input type="date" value="${state.dataCompra || new Date().toISOString().slice(0,10)}" oninput="app.setDataManual(this.value)"
+                    style="font-size:11px; border:none; background:transparent; color:#9A8A78; font-family:'Space Mono',monospace; width:130px;" />
+                </div>
+                ${itens.map((it, idx) => `
+                  <div class="item-row">
+                    <div class="item-fields">
+                      <input class="item-name" value="${esc(it.nome)}" placeholder="Nome do produto"
+                        oninput="app.setManualItem(${idx},'nome',this.value)" />
+                      <div class="item-numbers">
+                        <input type="number" step="1" min="1" value="${it.quantidade}"
+                          oninput="app.setManualItem(${idx},'quantidade',this.value)" style="width:50px;" />
+                        <span class="x">×</span>
+                        <input type="number" step="any" min="0" value="${it.precoUnitario || ''}" placeholder="0,00"
+                          oninput="app.setManualItem(${idx},'precoUnitario',this.value)" />
+                        <span class="total">${brl(it.quantidade * it.precoUnitario)}</span>
+                      </div>
+                    </div>
+                    <button class="btn-danger-text" onclick="app.removeManualItem(${idx})" style="margin-left:6px;">✕</button>
+                  </div>`).join("")}
+                <button class="btn-link" onclick="app.addManualItem()" style="margin:10px 0; font-size:13px;">+ Adicionar item</button>
+                <div class="receipt-total">
+                  <span>Total</span>
+                  <span>${brl(total)}</span>
+                </div>
+              </div>
+              <div class="receipt-edge" style="transform:scaleY(-1)"></div>
+            </div>
+            <div class="action-row">
+              <button class="btn btn-ghost" onclick="app.resetCaptureUI()">Cancelar</button>
+              <button class="btn btn-primary" onclick="app.salvarManual()">Adicionar aos insumos</button>
+            </div>
+          </div>`;
       }
       if (state.step === "processing") {
         return `
@@ -1248,10 +1299,8 @@
       if (state.notas.length === 0) {
         return `<div class="empty-state"><span class="icon">🧾</span><p>Nenhuma nota cadastrada ainda.<br>Fotografe uma na aba "Nova nota".</p></div>`;
       }
-      // Pedido #11 — agrupar por mês/ano e exibir totais mensais
       const porMes = {};
       for (const nota of state.notas) {
-        // data_compra pode ser "28/07/2026" ou "28 jul. 2026" — extrair mês/ano
         const raw = nota.data_compra || "";
         let mesKey = "Sem data";
         const m1 = raw.match(/(\d{2})\/(\d{2})\/(\d{4})/);
@@ -1264,7 +1313,6 @@
         porMes[mesKey].notas.push(nota);
       }
       const meses = Object.entries(porMes);
-      // Ordenar meses: mais recente primeiro
       meses.sort(([a], [b]) => {
         const [ma, aa] = a.split("/");
         const [mb, ab] = b.split("/");
@@ -1278,7 +1326,20 @@
         html += `<div class="summary-bar" style="margin-bottom:4px;"><span class="label">${label}</span><span class="value">${brl(dados.total)}</span></div>`;
         html += dados.notas.map((nota) => `
           <div class="nota-card">
-            <div class="nota-card-head"><span class="loja">${esc(nota.loja)}</span><span class="data">${esc(nota.data_compra)}</span></div>
+            <div class="nota-card-head">
+              <span class="loja">${esc(nota.loja)}</span>
+              <span style="display:flex;align-items:center;gap:6px;">
+                ${state.editandoDataNota === nota.id ? `
+                  <input type="date" id="data-edit-${nota.id}" value="${notaDataParaInput(nota.data_compra)}"
+                    style="font-size:12px;border:1px solid var(--caramel);border-radius:6px;padding:2px 6px;background:#fff;" />
+                  <button class="btn-link strong" onclick="app.salvarDataNota('${nota.id}')">✓</button>
+                  <button class="btn-link" onclick="app.cancelarEditData()">✕</button>
+                ` : `
+                  <span class="data">${esc(nota.data_compra)}</span>
+                  <button class="btn-link" onclick="app.editarDataNota('${nota.id}')" title="Editar data" style="font-size:14px;">✏️</button>
+                `}
+              </span>
+            </div>
             <div class="nota-items">
               ${nota.items.map((it) => `<div class="line"><span>${esc(it.nome)} (${it.quantidade}×)</span><span class="price">${brl(it.preco_total)}</span></div>`).join("")}
             </div>
@@ -1289,6 +1350,17 @@
           </div>`).join("");
       }
       return html;
+    }
+
+    function notaDataParaInput(dataStr) {
+      if (!dataStr) return "";
+      // tenta converter "28/07/2026" → "2026-07-28"
+      const m = dataStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+      if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+      // já está em formato ISO
+      const m2 = dataStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (m2) return dataStr.slice(0, 10);
+      return "";
     }
 
     function renderProdutos() {
@@ -1363,10 +1435,60 @@
       setEnviarDivisor,
       setEnviarPrecoManual,
       confirmarEnvio,
+      iniciarManual: () => {
+        state.step = "manual";
+        state.loja = "";
+        state.dataCompra = new Date().toISOString().slice(0, 10);
+        state.manualItens = [{ nome: "", quantidade: 1, precoUnitario: 0 }];
+        render();
+      },
+      setDataManual: (v) => { state.dataCompra = v; },
+      addManualItem: () => { state.manualItens.push({ nome: "", quantidade: 1, precoUnitario: 0 }); render(); },
+      removeManualItem: (idx) => { state.manualItens.splice(idx, 1); render(); },
+      setManualItem: (idx, field, value) => {
+        if (!state.manualItens[idx]) return;
+        state.manualItens[idx][field] = field === "nome" ? value : Number(value) || 0;
+        const totEl = document.querySelectorAll(".item-row")[idx]?.querySelector(".total");
+        if (totEl) totEl.textContent = brl(state.manualItens[idx].quantidade * state.manualItens[idx].precoUnitario);
+      },
+      salvarManual: async () => {
+        const itens = (state.manualItens || []).filter(it => it.nome.trim());
+        if (!itens.length) { toast("Adiciona pelo menos um item"); return; }
+        const loja = state.loja.trim() || "Manual";
+        const dataRaw = state.dataCompra || new Date().toISOString().slice(0, 10);
+        const [ano, mes, dia] = dataRaw.split("-");
+        const dataFormatada = `${dia}/${mes}/${ano}`;
+        const total = itens.reduce((s, it) => s + it.quantidade * it.precoUnitario, 0);
+        const notaId = `nota-${Date.now()}`;
+        const { error: e1 } = await sb.from("notas").insert({ id: notaId, loja, data_compra: dataFormatada, total });
+        if (e1) { toast("Erro ao salvar"); console.error(e1); return; }
+        const itensDB = itens.map(it => ({ nota_id: notaId, codigo: null, nome: it.nome, quantidade: it.quantidade, preco_unitario: it.precoUnitario, preco_total: it.quantidade * it.precoUnitario }));
+        const { error: e2 } = await sb.from("itens_nota").insert(itensDB);
+        if (e2) { toast("Erro ao salvar itens"); console.error(e2); return; }
+        resetCapture();
+        state.tab = "notas";
+        await carregarTudo();
+        toast("Nota lançada!");
+      },
       confirmSave,
       confirmSaveForcar: () => confirmSave(true),
       cancelarDuplicata: () => { state.confirmDuplicata = false; render(); },
       deleteNota,
+      editarDataNota: (id) => { state.editandoDataNota = id; render(); },
+      cancelarEditData: () => { state.editandoDataNota = null; render(); },
+      salvarDataNota: async (id) => {
+        const input = document.getElementById(`data-edit-${id}`);
+        if (!input) return;
+        const val = input.value; // "2026-07-15"
+        if (!val) return;
+        const [ano, mes, dia] = val.split("-");
+        const novaData = `${dia}/${mes}/${ano}`;
+        const { error } = await sb.from("notas").update({ data_compra: novaData }).eq("id", id);
+        if (error) { toast("Erro ao salvar data"); console.error(error); return; }
+        state.editandoDataNota = null;
+        toast("Data atualizada!");
+        await carregarTudo();
+      },
       setProdutoQuery: (v) => {
         state.produtoQuery = v;
         const container = document.getElementById("produtos-resultados");
