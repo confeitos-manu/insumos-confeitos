@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>Insumos por foto</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --paper: #FBF6EE;
@@ -173,10 +173,528 @@
   .tabbar button.active { color: var(--cocoa); }
 
   .toast { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); background: var(--cocoa); color: var(--paper); padding: 10px 18px; border-radius: 20px; font-size: 12px; z-index: 50; box-shadow: 0 6px 16px rgba(0,0,0,0.2); }
+
+
+  /* ============ Estilos do módulo de Precificação (escopados em .precificacao-embed) ============ */
+:root {
+    --cacau: #3D2817;
+    --marrom: #7A4B32;
+    --marrom-claro: #A97A54;
+    --dourado: #C7A24B;
+    --dourado-claro: #E7D6A8;
+    --creme: #FBF4E8;
+    --creme-escuro: #F3E9D6;
+    --branco: #FFFFFF;
+    --verde: #4C7A5D;
+    --verde-bg: #E9F3EC;
+    --vermelho: #B4483A;
+    --vermelho-bg: #F7E9E7;
+    --texto: #3A2317;
+    --texto-suave: #8A7561;
+    --sombra: 0 2px 10px rgba(61,40,23,0.08);
+    --sombra-forte: 0 8px 28px rgba(61,40,23,0.16);
+  }
+.precificacao-embed * {box-sizing:border-box;}
+.precificacao-embed body {
+    margin:0; font-family:'Inter',system-ui,sans-serif; background:var(--creme); color:var(--texto);
+    -webkit-font-smoothing:antialiased;
+  }
+.precificacao-embed h1, .precificacao-embed h2, .precificacao-embed h3, .precificacao-embed .display { font-family:'Fraunces',serif; }
+.precificacao-embed ::-webkit-scrollbar {width:8px;height:8px;}
+.precificacao-embed ::-webkit-scrollbar-thumb {background:var(--dourado-claro);border-radius:8px;}
+.precificacao-embed header.top {
+    background:var(--cacau); color:var(--branco); padding:18px 20px 14px;
+    position:sticky; top:0; z-index:20;
+  }
+.precificacao-embed header.top .brand { display:flex; align-items:center; gap:10px; }
+.precificacao-embed header.top .brand .logo { font-size:22px; }
+.precificacao-embed header.top h1 { margin:0; font-size:19px; font-weight:600; letter-spacing:.2px; }
+.precificacao-embed header.top p { margin:2px 0 0; font-size:12.5px; color:var(--dourado-claro); font-family:'Inter'; }
+.precificacao-embed nav.tabs {
+    display:flex; background:var(--branco); border-bottom:1px solid var(--creme-escuro);
+    position:sticky; top:64px; z-index:19; overflow-x:auto;
+  }
+.precificacao-embed nav.tabs button {
+    flex:1; min-width:110px; padding:13px 8px; background:none; border:none; cursor:pointer;
+    font-family:'Inter'; font-size:13.5px; font-weight:600; color:var(--texto-suave);
+    border-bottom:3px solid transparent; transition:.15s;
+  }
+.precificacao-embed nav.tabs button.active { color:var(--marrom); border-bottom-color:var(--dourado); }
+.precificacao-embed nav.tabs button:hover { color:var(--marrom); }
+.precificacao-embed main { max-width:760px; margin:0 auto; padding:18px 16px 90px; }
+.precificacao-embed .view { display:none; animation:fadein .2s ease; }
+.precificacao-embed .view.active { display:block; }
+@keyframes fadein { from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+.precificacao-embed .card {
+    background:var(--branco); border-radius:14px; padding:18px; margin-bottom:14px;
+    box-shadow:var(--sombra); border:1px solid var(--creme-escuro);
+  }
+.precificacao-embed .card h2 { margin:0 0 4px; font-size:17px; color:var(--cacau); }
+.precificacao-embed .card .sub { margin:0 0 14px; font-size:12.5px; color:var(--texto-suave); }
+.precificacao-embed .row { display:flex; gap:10px; flex-wrap:wrap; }
+.precificacao-embed .field { margin-bottom:12px; flex:1; min-width:120px; }
+.precificacao-embed .field label { display:block; font-size:12px; font-weight:600; color:var(--marrom); margin-bottom:5px; }
+.precificacao-embed .field input, .precificacao-embed .field select {
+    width:100%; padding:10px 11px; border:1.5px solid var(--creme-escuro); border-radius:9px;
+    font-family:'Inter'; font-size:14.5px; background:var(--creme); color:var(--texto);
+  }
+.precificacao-embed .field input:focus, .precificacao-embed .field select:focus { outline:none; border-color:var(--dourado); background:var(--branco); }
+.precificacao-embed button.btn {
+    font-family:'Inter'; font-weight:600; font-size:14px; border:none; border-radius:9px;
+    padding:11px 18px; cursor:pointer; transition:.15s;
+  }
+.precificacao-embed .btn-primary { background:var(--marrom); color:var(--branco); }
+.precificacao-embed .btn-primary:hover { background:var(--cacau); }
+.precificacao-embed .btn-gold { background:var(--dourado); color:var(--cacau); }
+.precificacao-embed .btn-gold:hover { filter:brightness(1.05); }
+.precificacao-embed .btn-ghost { background:transparent; color:var(--marrom); border:1.5px solid var(--marrom-claro); }
+.precificacao-embed .btn-ghost:hover { background:var(--creme-escuro); }
+.precificacao-embed .btn-danger { background:transparent; color:var(--vermelho); border:1.5px solid var(--vermelho); }
+.precificacao-embed .btn-danger:hover { background:var(--vermelho-bg); }
+.precificacao-embed .btn-sm { padding:7px 12px; font-size:12.5px; }
+.precificacao-embed .btn-block { width:100%; }
+.precificacao-embed table.list { width:100%; border-collapse:collapse; }
+.precificacao-embed table.list th {
+    text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.4px;
+    color:var(--texto-suave); border-bottom:2px solid var(--creme-escuro); padding:8px 6px;
+  }
+.precificacao-embed table.list td { padding:10px 6px; border-bottom:1px solid var(--creme-escuro); font-size:14px; vertical-align:middle;}
+.precificacao-embed table.list tr:last-child td { border-bottom:none; }
+.precificacao-embed .empty { text-align:center; padding:30px 10px; color:var(--texto-suave); }
+.precificacao-embed .empty .ic { font-size:32px; display:block; margin-bottom:8px; }
+.precificacao-embed .pill { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11.5px; font-weight:600; background:var(--creme-escuro); color:var(--marrom); }
+.precificacao-embed .result-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+.precificacao-embed .result-box { background:var(--verde-bg); border-radius:12px; padding:14px; text-align:center; }
+.precificacao-embed .result-box .lbl { font-size:11.5px; color:var(--marrom); font-weight:600; margin-bottom:4px; }
+.precificacao-embed .result-box .val { font-size:19px; font-weight:700; color:var(--verde); font-family:'Fraunces'; }
+.precificacao-embed .price-hero {
+    background:linear-gradient(135deg, var(--dourado), var(--dourado-claro)); border-radius:14px;
+    padding:20px; text-align:center; margin-bottom:6px;
+  }
+.precificacao-embed .price-hero .lbl { font-size:12.5px; font-weight:700; color:var(--cacau); text-transform:uppercase; letter-spacing:.5px; }
+.precificacao-embed .price-hero .val { font-size:34px; font-weight:700; color:var(--cacau); font-family:'Fraunces'; margin-top:2px; }
+.precificacao-embed .mat-item {
+    display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:8px; align-items:end; margin-bottom:10px;
+    padding:10px; background:var(--creme); border-radius:10px; border:1px solid var(--creme-escuro);
+  }
+.precificacao-embed .mat-item .field { margin:0; min-width:0; }
+.precificacao-embed .mat-remove { background:none; border:none; color:var(--vermelho); font-size:18px; cursor:pointer; padding:8px; }
+.precificacao-embed .conc-chart { display:flex; flex-direction:column; gap:10px; }
+.precificacao-embed .conc-bar-row { display:grid; grid-template-columns:88px 1fr 72px; align-items:center; gap:8px; }
+.precificacao-embed .conc-bar-label { font-size:12.5px; font-weight:600; color:var(--texto); text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.precificacao-embed .conc-bar-track { height:22px; border-radius:8px; overflow:hidden; position:relative; }
+.precificacao-embed .conc-bar-fill { height:100%; width:0%; border-radius:8px; transition:width 0.7s cubic-bezier(.2,.8,.2,1); }
+.precificacao-embed .conc-bar-valor { font-size:13px; font-weight:700; color:var(--marrom); text-align:left; }
+.precificacao-embed .fab {
+    position:fixed; right:18px; bottom:22px; z-index:30;
+    box-shadow:var(--sombra-forte); border-radius:50px; padding:14px 22px;
+  }
+.precificacao-embed .toast {
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--cacau); color:var(--branco); padding:11px 20px; border-radius:30px;
+    font-size:13.5px; box-shadow:var(--sombra-forte); z-index:60; opacity:0; pointer-events:none; transition:.25s;
+  }
+.precificacao-embed .toast.show { opacity:1; transform:translateX(-50%) translateY(-4px); }
+.precificacao-embed .back-link { display:inline-flex; align-items:center; gap:5px; color:var(--marrom); font-weight:600; font-size:13.5px; cursor:pointer; margin-bottom:12px; background:none; border:none; padding:0;}
+.precificacao-embed .hint { font-size:12px; color:var(--texto-suave); margin-top:6px; }
+.precificacao-embed .divider { height:1px; background:var(--creme-escuro); margin:16px 0; }
+@media print {.precificacao-embed header.top, .precificacao-embed nav.tabs, .precificacao-embed .fab, .precificacao-embed .no-print { display:none !important; }
+.precificacao-embed body { background:white; }}
 </style>
 </head>
 <body>
   <div id="root"></div>
+
+<!-- ================= MÓDULO DE PRECIFICAÇÃO (embutido) ================= -->
+<div id="precificacao-wrap" class="precificacao-embed" style="display:none;">
+
+
+<nav class="tabs">
+  <button class="tab-btn active" data-view="produtos">Produtos</button>
+  <button class="tab-btn" data-view="vendas">Vendas</button>
+  <button class="tab-btn" data-view="insumos">Insumos (preço base)</button>
+  <button class="tab-btn" data-view="perdas">Perdas</button>
+  <button class="tab-btn" data-view="custos">Custos da Loja</button>
+</nav>
+
+<main>
+
+  <!-- ================= PRODUTOS (lista) ================= -->
+  <section id="view-produtos" class="view active">
+    <button class="btn btn-primary btn-block no-print" id="btn-nova-precificacao" onclick="novoProduto()" style="margin-bottom:14px;">+ Nova Precificação</button>
+    <div class="field" style="margin-bottom:10px;">
+      <input id="produtos-busca" placeholder="🔎 Buscar por nome ou código..." oninput="filtrarProdutos(this.value)" />
+    </div>
+    <div class="row" style="margin-bottom:14px;">
+      <button class="btn btn-ghost btn-sm" id="btn-toggle-arquivados" onclick="toggleArquivados()">🗑️ Ver arquivados</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportarProdutosCSV()">⬇️ Exportar CSV</button>
+    </div>
+    <div id="produtos-lista"></div>
+  </section>
+
+  <!-- ================= NOVO / EDITAR PRODUTO ================= -->
+  <section id="view-produto-form" class="view">
+    <button class="back-link" onclick="mostrar('produtos')">← Voltar</button>
+    <div class="card" id="rascunho-banner" style="display:none; background:var(--dourado-claro); border:1.5px solid var(--dourado);">
+      <h2 style="margin-top:0;">📝 Você tem uma precificação em andamento</h2>
+      <p class="sub" id="rascunho-banner-texto" style="color:var(--cacau);"></p>
+      <div class="row">
+        <button class="btn btn-primary" onclick="continuarRascunho()">Continuar de onde parei</button>
+        <button class="btn btn-ghost" onclick="descartarRascunho()">Começar do zero</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2 id="pf-titulo">Nova Precificação</h2>
+      <p class="sub">Preencha os dados do produto</p>
+      <div class="row">
+        <div class="field" style="flex:2;">
+          <label>Nome do Produto</label>
+          <input id="pf-nome" placeholder="Ex: Buquê Doce Afeto Misto" />
+        </div>
+        <div class="field">
+          <label>Categoria</label>
+          <select id="pf-categoria">
+            <option>Buquê</option><option>Box</option><option>Arranjo</option>
+            <option>Cesta</option><option>Personalizado</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Código / SKU (opcional)</label>
+        <input id="pf-codigo" placeholder="Ex: BR-24R-001" />
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🌿 Materiais</h2>
+      <p class="sub">Escolha um insumo fixo (o preço vem sozinho) ou adicione um item avulso.</p>
+      <div id="mat-lista"></div>
+      <div class="row" style="margin-top:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="addMaterial(true)">+ Insumo cadastrado</button>
+        <button class="btn btn-ghost btn-sm" onclick="addMaterial(false)">+ Item avulso</button>
+      </div>
+      <div class="divider"></div>
+      <div style="text-align:right; font-size:14.5px;">
+        Custo de materiais: <strong id="mat-total">R$ 0,00</strong>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>⏱️ Tempo de Produção</h2>
+      <div class="field">
+        <label>Minutos para produzir este produto</label>
+        <input id="pf-minutos" type="number" min="0" placeholder="Ex: 40" />
+      </div>
+      <p class="hint">Horas/dia e dias/semana estão configurados na aba <strong>Custos da Loja</strong> — dá uma olhada lá antes de calcular.</p>
+    </div>
+
+    <div class="card">
+      <h2>🏷️ Preço Já Praticado (opcional)</h2>
+      <p class="sub">Se você já vende esse produto por um valor, coloca aqui — assim dá pra comparar com o preço calculado.</p>
+      <div class="field">
+        <label>Preço que você já cobra (R$)</label>
+        <input id="pf-praticado" type="number" min="0" step="0.01" placeholder="Ex: 55" />
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🔍 Preço dos Concorrentes (opcional)</h2>
+      <p class="sub">Anota o que a concorrência cobra por um produto parecido — pesquisa manual, mas ajuda a decidir seu preço.</p>
+      <div id="conc-lista"></div>
+      <button class="btn btn-ghost btn-sm" onclick="addConcorrente()">+ Adicionar concorrente</button>
+    </div>
+
+    <div class="card">
+      <h2>💰 Margem de Lucro</h2>
+      <div class="field">
+        <label>Quanto você quer que sobre, do preço final (%)</label>
+        <input id="pf-margem" type="number" min="0" max="99" placeholder="Ex: 45" />
+      </div>
+      <p class="hint">Ex: 45% significa que, do preço de venda, 45% é lucro puro pra você. Não pode chegar a 100%.</p>
+    </div>
+
+    <div class="card" id="pf-resultado-card" style="display:none;">
+      <h2>✨ Resultado</h2>
+      <div class="result-grid">
+        <div class="result-box"><div class="lbl">Materiais</div><div class="val" id="res-materiais">R$ 0,00</div></div>
+        <div class="result-box"><div class="lbl">Mão de obra</div><div class="val" id="res-maodeobra">R$ 0,00</div></div>
+        <div class="result-box"><div class="lbl">Rateio da loja</div><div class="val" id="res-rateio">R$ 0,00</div></div>
+        <div class="result-box"><div class="lbl">Custo total</div><div class="val" id="res-custo">R$ 0,00</div></div>
+        <div class="result-box" style="grid-column:span 2;"><div class="lbl">Lucro</div><div class="val" id="res-lucro">R$ 0,00</div></div>
+      </div>
+      <div class="price-hero">
+        <div class="lbl">Preço ideal de venda (à vista)</div>
+        <div class="val" id="res-preco">R$ 0,00</div>
+      </div>
+      <div class="row" id="res-status" style="margin-top:6px;"></div>
+      <div class="row" id="res-cartao-rapido" style="margin-top:6px;"></div>
+      <div class="row" id="res-arredondar" style="margin-top:6px;"></div>
+      <div class="row no-print" id="res-comparativo" style="margin-top:10px;"></div>
+      <div id="res-concorrentes" style="margin-top:10px;"></div>
+    </div>
+
+    <button class="btn btn-gold btn-block" onclick="calcular()">Calcular</button>
+    <div style="height:10px;"></div>
+    <button class="btn btn-primary btn-block" onclick="salvarProduto()">💾 Salvar Produto</button>
+  </section>
+
+  <!-- ================= VISUALIZAR PRODUTO ================= -->
+  <section id="view-produto-ver" class="view">
+    <button class="back-link no-print" onclick="mostrar('produtos')">← Voltar</button>
+    <div class="card">
+      <h2 id="pv-nome"></h2>
+      <p class="sub"><span class="pill" id="pv-categoria"></span> <span id="pv-codigo"></span></p>
+      <div class="result-grid">
+        <div class="result-box"><div class="lbl">Materiais</div><div class="val" id="pv-materiais">R$ 0,00</div></div>
+        <div class="result-box"><div class="lbl">Mão de obra</div><div class="val" id="pv-maodeobra">R$ 0,00</div></div>
+        <div class="result-box"><div class="lbl">Rateio da loja</div><div class="val" id="pv-rateio">R$ 0,00</div></div>
+        <div class="result-box"><div class="lbl">Custo total</div><div class="val" id="pv-custo">R$ 0,00</div></div>
+        <div class="result-box" style="grid-column:span 2;"><div class="lbl">Lucro</div><div class="val" id="pv-lucro">R$ 0,00</div></div>
+      </div>
+      <div class="price-hero">
+        <div class="lbl">Preço ideal de venda (à vista)</div>
+        <div class="val" id="pv-preco">R$ 0,00</div>
+      </div>
+      <div class="row" id="pv-status" style="margin-top:6px;"></div>
+      <div class="row" id="pv-cartao-rapido" style="margin-top:6px;"></div>
+      <div class="row no-print" id="pv-arredondar" style="margin-top:6px;"></div>
+      <div class="row" id="pv-comparativo" style="margin-top:10px;"></div>
+      <div id="pv-concorrentes" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card no-print">
+      <h2>💳 Outras Formas de Pagamento</h2>
+      <p class="sub">Já mostrei à vista e no crédito 1x acima — aqui você escolhe outra forma específica se quiser.</p>
+      <div class="field">
+        <select id="pv-forma-pagamento" onchange="atualizarPrecoComTaxa()">
+          <option value="0">Pix / Dinheiro (sem taxa)</option>
+          <option value="pix">Pix (taxa cadastrada)</option>
+          <option value="debito">Cartão de Débito</option>
+          <option value="credito_1">Crédito 1x</option>
+          <option value="credito_2">Crédito 2x</option>
+          <option value="credito_3">Crédito 3x</option>
+          <option value="credito_4">Crédito 4x</option>
+          <option value="credito_5">Crédito 5x</option>
+          <option value="credito_6">Crédito 6x</option>
+          <option value="credito_7">Crédito 7x</option>
+          <option value="credito_8">Crédito 8x</option>
+          <option value="credito_9">Crédito 9x</option>
+          <option value="credito_10">Crédito 10x</option>
+          <option value="credito_11">Crédito 11x</option>
+          <option value="credito_12">Crédito 12x</option>
+        </select>
+      </div>
+      <div class="result-box" id="pv-taxa-resultado" style="display:none;">
+        <div class="lbl" id="pv-taxa-label">Preço com taxa</div>
+        <div class="val" id="pv-preco-com-taxa">R$ 0,00</div>
+      </div>
+    </div>
+    <div class="row no-print">
+      <button class="btn btn-ghost" onclick="editarProduto(window.currentProdutoId)">✏️ Editar</button>
+      <button class="btn btn-ghost" onclick="duplicarProduto(window.currentProdutoId)">⧉ Duplicar</button>
+      <button class="btn btn-ghost" onclick="window.print()">🖨️ Imprimir / PDF</button>
+      <button class="btn btn-danger" onclick="excluirProduto(window.currentProdutoId)">🗑️ Arquivar</button>
+    </div>
+  </section>
+
+  <!-- ================= VENDAS + PONTO DE EQUILÍBRIO ================= -->
+  <section id="view-vendas" class="view">
+    <div class="card">
+      <h2>🎯 Ponto de Equilíbrio do Mês</h2>
+      <p class="sub">Quanto dos seus custos fixos já foi coberto pelas vendas deste mês.</p>
+      <div class="result-grid">
+        <div class="result-box"><div class="lbl">Custos fixos do mês</div><div class="val" id="pe-custos-fixos">R$ 0,00</div></div>
+        <div class="result-box"><div class="lbl">Já coberto (vendas)</div><div class="val" id="pe-coberto">R$ 0,00</div></div>
+      </div>
+      <div style="background:var(--creme); border-radius:10px; height:26px; overflow:hidden; margin:10px 0; position:relative;">
+        <div id="pe-barra" style="height:100%; width:0%; background:var(--dourado); transition:width 0.7s cubic-bezier(.2,.8,.2,1); border-radius:10px;"></div>
+      </div>
+      <p id="pe-mensagem" class="hint" style="font-size:14px; font-weight:600;"></p>
+    </div>
+
+    <div class="card">
+      <h2>🛒 Registrar Venda</h2>
+      <div class="field">
+        <label>Produto</label>
+        <select id="v-produto" onchange="preencherVendaAutomatico()">
+          <option value="">Outro (digitar manualmente)</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="field"><label>Nome (se "Outro")</label><input id="v-nome" placeholder="Ex: Buquê avulso" /></div>
+        <div class="field"><label>Data</label><input id="v-data" type="date" /></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Quantidade</label><input id="v-qtd" type="number" min="1" value="1" /></div>
+        <div class="field"><label>Preço cobrado (R$)</label><input id="v-preco" type="number" min="0" step="0.01" /></div>
+        <div class="field"><label>Custo unitário (R$)</label><input id="v-custo" type="number" min="0" step="0.01" /></div>
+      </div>
+      <p class="hint">Margem de contribuição desta venda: <strong id="v-margem-preview">R$ 0,00</strong></p>
+      <button class="btn btn-primary" id="v-btn-salvar" onclick="salvarVenda()">+ Registrar Venda</button>
+      <button class="btn btn-ghost" id="v-btn-cancelar-edicao" onclick="cancelarEdicaoVenda()" style="display:none;">Cancelar edição</button>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between; align-items:center;">
+        <h2 style="margin:0;">Vendas deste mês</h2>
+        <button class="btn btn-ghost btn-sm" onclick="exportarVendasCSV()">⬇️ Exportar CSV</button>
+      </div>
+      <table class="list">
+        <thead><tr><th>Data</th><th>Produto</th><th>Qtd</th><th>Preço</th><th>Margem</th><th></th></tr></thead>
+        <tbody id="vendas-tbody"></tbody>
+      </table>
+      <div id="vendas-empty" class="empty" style="display:none;">
+        <span class="ic">🛒</span>Nenhuma venda registrada este mês.
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= INSUMOS ================= -->
+  <section id="view-insumos" class="view">
+    <div class="card">
+      <h2>🌿 Insumos Fixos</h2>
+      <p class="sub">Cadastre aqui os itens que você compra sempre (Ferrero, rosas, papel...). Se o preço subir, muda aqui uma vez só — e atualiza em todos os produtos que usam esse insumo.</p>
+      <div class="row">
+        <div class="field" style="flex:2;">
+          <label>Nome</label>
+          <input id="ins-nome" placeholder="Ex: Ferrero Rocher" />
+        </div>
+        <div class="field">
+          <label>Preço (R$)</label>
+          <input id="ins-preco" type="number" min="0" step="0.01" placeholder="Ex: 1.80" />
+        </div>
+        <div class="field">
+          <label>Unidade</label>
+          <input id="ins-unidade" placeholder="Ex: unidade" />
+        </div>
+      </div>
+      <button class="btn btn-primary" id="ins-btn-salvar" onclick="salvarInsumo()">+ Adicionar Insumo</button>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between; align-items:center;">
+        <h2 style="margin:0;">Lista de Insumos</h2>
+        <button class="btn btn-ghost btn-sm" onclick="exportarInsumosCSV()">⬇️ Exportar CSV</button>
+      </div>
+      <table class="list">
+        <thead><tr><th>Nome</th><th>Preço</th><th>Unidade</th><th></th></tr></thead>
+        <tbody id="insumos-tbody"></tbody>
+      </table>
+      <div id="insumos-empty" class="empty" style="display:none;">
+        <span class="ic">🌿</span>Nenhum insumo cadastrado ainda.
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CUSTOS DA LOJA ================= -->
+  <!-- ================= PERDAS (custos invisíveis) ================= -->
+  <section id="view-perdas" class="view">
+    <div class="card">
+      <h2>🥀 Registrar Perda</h2>
+      <p class="sub">Flor que murchou, embalagem rasgada, laço estragado, cartão impresso errado... registra aqui e isso entra sozinho no rateio da loja.</p>
+      <div class="row">
+        <div class="field"><label>Data</label><input id="pd-data" type="date" /></div>
+        <div class="field">
+          <label>Categoria</label>
+          <select id="pd-categoria">
+            <option>Flores</option><option>Embalagens</option><option>Laços</option>
+            <option>Cartões impressos</option><option>Outros</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Descrição (opcional)</label><input id="pd-descricao" placeholder="Ex: 3 rosas murcharam antes de usar" /></div>
+      <div class="field"><label>Valor perdido (R$)</label><input id="pd-valor" type="number" min="0" step="0.01" placeholder="Ex: 12"/></div>
+      <button class="btn btn-primary" onclick="salvarPerda()">+ Registrar Perda</button>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between; align-items:center;">
+        <h2 style="margin:0;">Perdas deste mês</h2>
+        <button class="btn btn-ghost btn-sm" onclick="exportarPerdasCSV()">⬇️ Exportar CSV</button>
+      </div>
+      <div class="price-hero" style="margin-top:10px;">
+        <div class="lbl">Total perdido este mês</div>
+        <div class="val" id="pd-total-mes">R$ 0,00</div>
+      </div>
+      <p class="hint">Esse valor entra automaticamente no rateio da loja, na aba Custos da Loja.</p>
+      <div class="divider"></div>
+      <table class="list">
+        <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th></th></tr></thead>
+        <tbody id="perdas-tbody"></tbody>
+      </table>
+      <div id="perdas-empty" class="empty" style="display:none;">
+        <span class="ic">🥀</span>Nenhuma perda registrada este mês.
+      </div>
+    </div>
+  </section>
+
+  <section id="view-custos" class="view">
+    <div class="card">
+      <h2>⏱️ Seu Tempo de Trabalho</h2>
+      <p class="sub">Usado para ratear os custos fixos da loja entre os produtos.</p>
+      <div class="row">
+        <div class="field"><label>Horas que trabalha por dia</label><input id="cf-horas" type="number" min="0" /></div>
+        <div class="field"><label>Dias que trabalha por semana</label><input id="cf-dias" type="number" min="0" /></div>
+      </div>
+      <div class="field">
+        <label>Salário mensal desejado (R$)</label>
+        <input id="cf-salario" type="number" min="0" placeholder="Ex: 2000" />
+      </div>
+      <p class="hint">Isso vira o seu "Custo de mão de obra" — rateado em cada produto pelo tempo que ele leva pra fazer, do mesmo jeito que o aluguel. Valor da sua hora: <strong id="cf-valorhora">R$ 0,00</strong></p>
+    </div>
+    <div class="card">
+      <h2>🏠 Custos Mensais da Loja</h2>
+
+      <p class="sub">Todos opcionais — o que existir mesmo quando você não vende.</p>
+      <div class="row">
+        <div class="field"><label>Aluguel</label><input id="cf-aluguel" type="number" min="0" /></div>
+        <div class="field"><label>Energia</label><input id="cf-energia" type="number" min="0" /></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Água</label><input id="cf-agua" type="number" min="0" /></div>
+        <div class="field"><label>Internet</label><input id="cf-internet" type="number" min="0" /></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Funcionários / Freelancers</label><input id="cf-funcionarios" type="number" min="0" /></div>
+        <div class="field"><label>Sistemas / Assinaturas</label><input id="cf-sistemas" type="number" min="0" /></div>
+      </div>
+      <div class="field"><label>Outros custos</label><input id="cf-outros" type="number" min="0" /></div>
+      <div class="divider"></div>
+      <div style="text-align:right; font-size:13px; color:var(--texto-suave);">Perdas registradas este mês (🥀 automático): <strong id="cf-perdas-mes">R$ 0,00</strong></div>
+      <div style="text-align:right; font-size:14.5px; margin-top:4px;">Total mensal (com perdas): <strong id="cf-total">R$ 0,00</strong></div>
+    </div>
+    <div class="card">
+      <h2>📊 Custo Fixo Médio por Venda (informativo)</h2>
+      <p class="sub">Isso NÃO entra no cálculo do preço — é só um indicador pra você acompanhar, olhando pra trás no mês. O preço de cada produto continua sendo calculado pelo tempo de produção dele.</p>
+      <div class="field">
+        <label>Quantas vendas você fez este mês?</label>
+        <input id="cf-qtd-vendida" type="number" min="0" placeholder="Ex: 40" />
+      </div>
+      <div class="result-box" style="width:100%;">
+        <div class="lbl">Custo fixo médio por venda</div>
+        <div class="val" id="cf-custo-medio-venda" style="font-size:22px;">R$ 0,00</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>💳 Taxas de Pagamento (opcional)</h2>
+      <p class="sub">Só usadas se você quiser ver o preço já com a taxa, na tela de cada produto.</p>
+      <div class="row">
+        <div class="field"><label>Pix (%)</label><input id="cf-taxa-pix" type="number" min="0" step="0.01" placeholder="Ex: 0"/></div>
+        <div class="field"><label>Débito (%)</label><input id="cf-taxa-debito" type="number" min="0" step="0.01" placeholder="Ex: 1.5"/></div>
+      </div>
+      <div class="divider"></div>
+      <p class="sub" style="margin-bottom:8px;">Crédito — taxa por parcela</p>
+      <div id="cf-credito-parcelas" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;"></div>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="salvarCustos()">💾 Salvar Custos da Loja</button>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+
+</div>
+<!-- ================= FIM MÓDULO DE PRECIFICAÇÃO ================= -->
+
 
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -714,6 +1232,7 @@
           <button class="${state.tab === "notas" ? "active" : ""}" onclick="app.setTab('notas')">🧾<br>Notas</button>
           <button class="${state.tab === "produtos" ? "active" : ""}" onclick="app.setTab('produtos')">📊<br>Produtos</button>
           <button class="${state.tab === "estoque" ? "active" : ""}" onclick="app.setTab('estoque')">📦<br>Estoque</button>
+          <button class="${state.tab === "precificacao" ? "active" : ""}" onclick="app.setTab('precificacao')">💰<br>Preços</button>
         </div>
       `;
     }
@@ -1060,11 +1579,1125 @@
       deleteEstoque,
       toggleEstoqueStatus,
       exportarBackup,
-      setTab: (t) => { state.tab = t; if (t === "nova") resetCapture(); render(); },
+      setTab: (t) => {
+        state.tab = t;
+        if (t === "nova") resetCapture();
+        render();
+        const wrap = document.getElementById("precificacao-wrap");
+        if (wrap) wrap.style.display = t === "precificacao" ? "block" : "none";
+      },
     };
 
     render();
     carregarTudo();
   </script>
+
+<!-- ================= LÓGICA DO MÓDULO DE PRECIFICAÇÃO (embutido) ================= -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+
+/* ============================================================
+   CONFIGURAÇÃO — cole aqui a URL e a chave anon do seu Supabase
+   (Supabase > Project Settings > API)
+   ============================================================ */
+const SUPABASE_URL = "https://jhjchfesrxnpbabhylxs.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_cz83j5R_8j0yUaWFhFVMuw_m_QqfCoi";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ---------------- Helpers ---------------- */
+const fmt = (n) => "R$ " + (Number(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2});
+function calcularPrecoComMargem(custoTotal, margemPct){
+  // Margem de contribuição sobre o preço de venda: Preço = Custo ÷ (1 − Margem%)
+  // A margem% já é direto o quanto sobra sobre o preço final (não sobre o custo).
+  let margemUsada = margemPct;
+  let limitada = false;
+  if(margemUsada >= 1){ margemUsada = 0.95; limitada = true; }
+  if(margemUsada < 0){ margemUsada = 0; }
+  const precoVenda = margemUsada < 1 ? custoTotal / (1 - margemUsada) : custoTotal;
+  const lucro = precoVenda - custoTotal;
+  return { lucro, precoVenda, limitada };
+}
+
+function sugestoesPreco(preco){
+  const inteiro = Math.floor(preco);
+  const opc90 = (preco - inteiro) < 0.9 ? (inteiro - 0.1) : (inteiro + 0.9);
+  const opcRedondo = Math.round(preco);
+  return [Math.max(opc90,0), Math.max(opcRedondo,0)];
+}
+function renderArredondamento(containerId, preco){
+  const el = document.getElementById(containerId);
+  if(!el || !preco){ if(el) el.innerHTML=''; return; }
+  const [opc90, opcRedondo] = sugestoesPreco(preco);
+  el.innerHTML = `
+    <span class="pill" style="background:var(--creme-escuro);">💡 Sugestão: ${fmt(opc90)} ou ${fmt(opcRedondo)}</span>`;
+}
+function statusMargem(margemFrac){
+  if(margemFrac < 0) return {label:'PREJUÍZO', cor:'#7A1F1F', bg:'#F3D6D3'};
+  if(margemFrac < 0.10) return {label:'REVISAR', cor:'var(--vermelho)', bg:'var(--vermelho-bg)'};
+  if(margemFrac < 0.25) return {label:'ATENÇÃO', cor:'#8A6D1D', bg:'#FBF0D2'};
+  return {label:'SAUDÁVEL', cor:'var(--verde)', bg:'var(--verde-bg)'};
+}
+function statusBadgeHTML(margemFrac){
+  const s = statusMargem(margemFrac);
+  return `<span class="pill" style="background:${s.bg}; color:${s.cor}; font-weight:700;">${s.label} (${(margemFrac*100).toFixed(1)}%)</span>`;
+}
+function calcPrecoComTaxaPct(preco, taxaPct){
+  const t = taxaPct/100;
+  return t < 1 ? preco/(1-t) : preco;
+}
+function renderCartaoRapido(containerId, precoVenda, custos){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const taxaDebito = custos?.taxa_debito || 0;
+  const parcelas = Array.isArray(custos?.taxa_credito_parcelas) ? custos.taxa_credito_parcelas : new Array(12).fill(0);
+  const taxaCredito1x = parcelas[0] || 0;
+  const precoDebito = calcPrecoComTaxaPct(precoVenda, taxaDebito);
+  const precoCredito1x = calcPrecoComTaxaPct(precoVenda, taxaCredito1x);
+  el.innerHTML = `
+    <span class="pill" style="background:var(--creme-escuro);">🧾 À vista: ${fmt(precoVenda)}</span>
+    <span class="pill" style="background:var(--creme-escuro);">💳 Débito: ${fmt(precoDebito)}</span>
+    <span class="pill" style="background:var(--creme-escuro);">💳 Crédito 1x: ${fmt(precoCredito1x)}</span>`;
+}
+function renderComparativo(containerId, precoCalculado, precoPraticado, custoTotal){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  if(precoPraticado === null || precoPraticado === undefined || precoPraticado === '' || isNaN(precoPraticado) || precoPraticado <= 0){
+    el.innerHTML = '';
+    return;
+  }
+  const diff = precoPraticado - precoCalculado;
+  const diffPct = precoCalculado>0 ? (diff/precoCalculado)*100 : 0;
+  const acimaOuAbaixo = diff >= 0 ? 'acima' : 'abaixo';
+  const cor = diff >= 0 ? 'var(--verde)' : 'var(--vermelho)';
+  const bg = diff >= 0 ? 'var(--verde-bg)' : 'var(--vermelho-bg)';
+  const margemReal = precoPraticado>0 ? (precoPraticado - (custoTotal||0)) / precoPraticado : 0;
+  el.innerHTML = `
+    <div class="result-box" style="background:${bg}; width:100%;">
+      <div class="lbl">Preço já praticado</div>
+      <div class="val" style="color:${cor}; font-size:19px;">${fmt(precoPraticado)}</div>
+      <div class="hint" style="margin-top:4px; color:${cor};">${diff>=0?'+':''}${fmt(diff)} (${diffPct>=0?'+':''}${diffPct.toFixed(1)}%) ${acimaOuAbaixo} do preço calculado</div>
+      <div style="margin-top:8px;">${statusBadgeHTML(margemReal)}</div>
+    </div>`;
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function mostrar(view){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+view).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  const tabBtn = document.querySelector(`.tab-btn[data-view="${view}"]`);
+  if(tabBtn) tabBtn.classList.add('active');
+  if(view==='produtos') carregarProdutos();
+  if(view==='insumos') carregarInsumos();
+  if(view==='perdas') carregarPerdas();
+  if(view==='vendas') carregarVendas();
+  if(view==='custos') carregarCustos();
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('.tab-btn').forEach(b=>{
+  b.addEventListener('click', ()=>mostrar(b.dataset.view));
+});
+
+/* ============================================================
+   INSUMOS
+   ============================================================ */
+let insumosCache = [];
+
+async function carregarInsumos(){
+  const tbody = document.getElementById('insumos-tbody');
+  const empty = document.getElementById('insumos-empty');
+  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:22px; color:var(--texto-suave);">Carregando...</td></tr>';
+  empty.style.display = 'none';
+  const {data, error} = await sb.from('insumos').select('*').order('nome');
+  if(error){ toast('Erro ao carregar insumos'); console.error(error); return; }
+  insumosCache = data || [];
+  tbody.innerHTML = '';
+  if(!insumosCache.length){ empty.style.display='block'; return; }
+  empty.style.display='none';
+  insumosCache.forEach(ins=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${ins.nome}</td>
+      <td>${fmt(ins.preco)}</td>
+      <td>${ins.unidade}</td>
+      <td style="text-align:right; white-space:nowrap;">
+        <button class="btn btn-ghost btn-sm" onclick="editarInsumo('${ins.id}')">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirInsumo('${ins.id}')">Excluir</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+let editandoInsumoId = null;
+function editarInsumo(id){
+  const ins = insumosCache.find(i=>i.id===id);
+  if(!ins) return;
+  document.getElementById('ins-nome').value = ins.nome;
+  document.getElementById('ins-preco').value = ins.preco;
+  document.getElementById('ins-unidade').value = ins.unidade;
+  editandoInsumoId = id;
+  document.getElementById('ins-btn-salvar').textContent = '💾 Salvar Alteração';
+  window.scrollTo(0,0);
+}
+
+async function salvarInsumo(){
+  const nome = document.getElementById('ins-nome').value.trim();
+  const preco = parseFloat(document.getElementById('ins-preco').value) || 0;
+  const unidade = document.getElementById('ins-unidade').value.trim() || 'unidade';
+  if(!nome){ toast('Dá um nome pro insumo'); return; }
+
+  if(editandoInsumoId){
+    const {error} = await sb.from('insumos').update({nome, preco, unidade, updated_at:new Date().toISOString()}).eq('id', editandoInsumoId);
+    if(error){ toast('Erro ao salvar'); console.error(error); return; }
+    toast('Insumo atualizado!');
+    editandoInsumoId = null;
+    document.getElementById('ins-btn-salvar').textContent = '+ Adicionar Insumo';
+  } else {
+    const {error} = await sb.from('insumos').insert({nome, preco, unidade});
+    if(error){ toast('Erro ao salvar'); console.error(error); return; }
+    toast('Insumo adicionado!');
+  }
+  document.getElementById('ins-nome').value = '';
+  document.getElementById('ins-preco').value = '';
+  document.getElementById('ins-unidade').value = '';
+  carregarInsumos();
+}
+
+async function excluirInsumo(id){
+  if(!confirm('Excluir este insumo? Produtos que já usam ele vão manter o valor salvo, mas não vão mais atualizar sozinhos.')) return;
+  const {error} = await sb.from('insumos').delete().eq('id', id);
+  if(error){ toast('Erro ao excluir'); return; }
+  toast('Insumo excluído');
+  carregarInsumos();
+}
+
+/* ============================================================
+   PERDAS (custos invisíveis)
+   ============================================================ */
+function primeiroDiaMesISO(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+}
+
+let perdasCache = [];
+
+async function carregarPerdas(){
+  if(!document.getElementById('pd-data').value){
+    document.getElementById('pd-data').value = new Date().toISOString().slice(0,10);
+  }
+  const tbody = document.getElementById('perdas-tbody');
+  const empty = document.getElementById('perdas-empty');
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:22px; color:var(--texto-suave);">Carregando...</td></tr>';
+  empty.style.display = 'none';
+  const {data, error} = await sb.from('perdas').select('*').gte('data', primeiroDiaMesISO()).order('data',{ascending:false});
+  if(error){ toast('Erro ao carregar perdas'); console.error(error); return; }
+  perdasCache = data || [];
+  tbody.innerHTML = '';
+  const total = perdasCache.reduce((s,p)=> s+(p.valor||0), 0);
+  document.getElementById('pd-total-mes').textContent = fmt(total);
+  if(!perdasCache.length){ empty.style.display='block'; return; }
+  empty.style.display='none';
+  perdasCache.forEach(p=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${new Date(p.data+'T00:00:00').toLocaleDateString('pt-BR')}</td>
+      <td>${p.categoria}</td>
+      <td>${p.descricao||''}</td>
+      <td>${fmt(p.valor)}</td>
+      <td style="text-align:right;"><button class="btn btn-danger btn-sm" onclick="excluirPerda('${p.id}')">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function salvarPerda(){
+  const valor = parseFloat(document.getElementById('pd-valor').value) || 0;
+  if(valor <= 0){ toast('Coloca o valor perdido'); return; }
+  const payload = {
+    data: document.getElementById('pd-data').value || new Date().toISOString().slice(0,10),
+    categoria: document.getElementById('pd-categoria').value,
+    descricao: document.getElementById('pd-descricao').value.trim(),
+    valor
+  };
+  const {error} = await sb.from('perdas').insert(payload);
+  if(error){ toast('Erro ao registrar perda'); console.error(error); return; }
+  toast('Perda registrada');
+  document.getElementById('pd-descricao').value = '';
+  document.getElementById('pd-valor').value = '';
+  carregarPerdas();
+}
+
+async function excluirPerda(id){
+  if(!confirm('Excluir esse registro de perda?')) return;
+  const {error} = await sb.from('perdas').delete().eq('id', id);
+  if(error){ toast('Erro ao excluir'); return; }
+  toast('Removido');
+  carregarPerdas();
+}
+
+function exportarPerdasCSV(){
+  const rows = [['Data','Categoria','Descrição','Valor']];
+  perdasCache.forEach(p=> rows.push([p.data, p.categoria, p.descricao||'', p.valor]));
+  baixarCSV('perdas_confeitos_manu.csv', rows);
+  toast('CSV baixado!');
+}
+
+async function getPerdasDoMes(){
+  const {data, error} = await sb.from('perdas').select('valor').gte('data', primeiroDiaMesISO());
+  if(error){ console.error(error); return 0; }
+  return (data||[]).reduce((s,p)=> s+(p.valor||0), 0);
+}
+
+async function totalCustosFixosMesDB(){
+  const custos = await getCustosFixos();
+  if(!custos) return 0;
+  const perdasMes = await getPerdasDoMes();
+  return custos.aluguel + custos.energia + custos.agua + custos.internet + custos.funcionarios + custos.sistemas + custos.outros + perdasMes;
+}
+
+async function custoEPrecoAtualDoProduto(produtoRow){
+  await carregarInsumos();
+  const custos = await getCustosFixos();
+  const perdasMes = await getPerdasDoMes();
+  const totalFixos = custos.aluguel + custos.energia + custos.agua + custos.internet + custos.funcionarios + custos.sistemas + custos.outros + perdasMes;
+  const minutosMes = (custos.horas_dia||0) * (custos.dias_semana||0) * 4.33 * 60;
+  const rateioLoja = minutosMes>0 ? (totalFixos/minutosMes) * (produtoRow.minutos_producao||0) : 0;
+  const custoMaoDeObra = minutosMes>0 ? ((custos.salario_mensal||0)/minutosMes) * (produtoRow.minutos_producao||0) : 0;
+  const custoMateriais = (produtoRow.materiais||[]).reduce((s,m)=>{
+    if(m.fixo && m.insumo_id){
+      const insAtual = insumosCache.find(i=>i.id===m.insumo_id);
+      const preco = insAtual ? insAtual.preco : m.valor_unitario;
+      return s + preco*(m.quantidade||0);
+    }
+    return s + (m.fixo ? m.valor_unitario*(m.quantidade||0) : (m.valor_unitario||0));
+  }, 0);
+  const custoTotal = custoMateriais + custoMaoDeObra + rateioLoja;
+  const { precoVenda } = calcularPrecoComMargem(custoTotal, produtoRow.margem||0);
+  return { custoTotal, precoVenda };
+}
+
+/* ============================================================
+   VENDAS + PONTO DE EQUILÍBRIO
+   ============================================================ */
+let vendasCache = [];
+let produtosParaVenda = [];
+
+async function carregarVendas(){
+  if(!document.getElementById('v-data').value){
+    document.getElementById('v-data').value = new Date().toISOString().slice(0,10);
+  }
+  // popula o dropdown de produtos ativos
+  const {data: produtosData} = await sb.from('produtos').select('*').eq('ativo', true).order('nome');
+  produtosParaVenda = produtosData || [];
+  const sel = document.getElementById('v-produto');
+  sel.innerHTML = '<option value="">Outro (digitar manualmente)</option>' +
+    produtosParaVenda.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+
+  // carrega vendas do mês
+  const tbody = document.getElementById('vendas-tbody');
+  const empty = document.getElementById('vendas-empty');
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:22px; color:var(--texto-suave);">Carregando...</td></tr>';
+  empty.style.display = 'none';
+  const {data, error} = await sb.from('vendas').select('*').gte('data', primeiroDiaMesISO()).order('data',{ascending:false});
+  if(error){ toast('Erro ao carregar vendas'); console.error(error); return; }
+  vendasCache = data || [];
+  tbody.innerHTML = '';
+  if(!vendasCache.length){ empty.style.display='block'; }
+  else{
+    empty.style.display='none';
+    vendasCache.forEach(v=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${new Date(v.data+'T00:00:00').toLocaleDateString('pt-BR')}</td>
+        <td>${v.produto_nome}</td>
+        <td>${v.quantidade}</td>
+        <td>${fmt(v.preco_unitario)}</td>
+        <td>${fmt(v.margem_contribuicao_total)}</td>
+        <td style="text-align:right; white-space:nowrap;">
+          <button class="btn btn-ghost btn-sm" onclick="editarVenda('${v.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="excluirVenda('${v.id}')">✕</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  await atualizarPontoDeEquilibrio();
+}
+
+async function atualizarPontoDeEquilibrio(){
+  const custosFixosMes = await totalCustosFixosMesDB();
+  const coberto = vendasCache.reduce((s,v)=> s+(v.margem_contribuicao_total||0), 0);
+  document.getElementById('pe-custos-fixos').textContent = fmt(custosFixosMes);
+  document.getElementById('pe-coberto').textContent = fmt(coberto);
+  const pct = custosFixosMes>0 ? Math.min((coberto/custosFixosMes)*100, 100) : 0;
+  const barra = document.getElementById('pe-barra');
+  requestAnimationFrame(()=> requestAnimationFrame(()=>{ barra.style.width = pct + '%'; }));
+  const msg = document.getElementById('pe-mensagem');
+  if(custosFixosMes<=0){
+    msg.textContent = 'Configure seus Custos da Loja pra calcular o ponto de equilíbrio.';
+    msg.style.color = 'var(--texto-suave)';
+  } else if(coberto >= custosFixosMes){
+    msg.textContent = `🎉 Meta batida! Depois de cobrir os custos fixos, o lucro extra deste mês é ${fmt(coberto-custosFixosMes)}.`;
+    msg.style.color = 'var(--verde)';
+  } else {
+    msg.textContent = `Faltam ${fmt(custosFixosMes-coberto)} de margem de contribuição pra cobrir os custos fixos deste mês (${pct.toFixed(0)}% coberto).`;
+    msg.style.color = 'var(--marrom)';
+  }
+}
+
+async function preencherVendaAutomatico(){
+  const id = document.getElementById('v-produto').value;
+  if(!id){ return; }
+  const produto = produtosParaVenda.find(p=>p.id===id);
+  if(!produto) return;
+  toast('Calculando preço e custo atuais...');
+  const { custoTotal, precoVenda } = await custoEPrecoAtualDoProduto(produto);
+  document.getElementById('v-nome').value = produto.nome;
+  document.getElementById('v-preco').value = precoVenda.toFixed(2);
+  document.getElementById('v-custo').value = custoTotal.toFixed(2);
+  atualizarMargemPreview();
+}
+
+function atualizarMargemPreview(){
+  const preco = parseFloat(document.getElementById('v-preco').value) || 0;
+  const custo = parseFloat(document.getElementById('v-custo').value) || 0;
+  const qtd = parseFloat(document.getElementById('v-qtd').value) || 1;
+  const margemTotal = (preco - custo) * qtd;
+  document.getElementById('v-margem-preview').textContent = fmt(margemTotal);
+}
+['v-preco','v-custo','v-qtd'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', atualizarMargemPreview);
+});
+
+let editandoVendaId = null;
+
+function editarVenda(id){
+  const v = vendasCache.find(x=>x.id===id);
+  if(!v) return;
+  editandoVendaId = id;
+  document.getElementById('v-produto').value = v.produto_id || '';
+  document.getElementById('v-nome').value = v.produto_nome || '';
+  document.getElementById('v-data').value = v.data;
+  document.getElementById('v-qtd').value = v.quantidade;
+  document.getElementById('v-preco').value = v.preco_unitario;
+  document.getElementById('v-custo').value = v.custo_unitario;
+  atualizarMargemPreview();
+  document.getElementById('v-btn-salvar').textContent = '💾 Salvar Alteração';
+  document.getElementById('v-btn-cancelar-edicao').style.display = 'inline-block';
+  document.getElementById('v-produto').closest('.card').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function cancelarEdicaoVenda(){
+  editandoVendaId = null;
+  document.getElementById('v-produto').value = '';
+  document.getElementById('v-nome').value = '';
+  document.getElementById('v-qtd').value = '1';
+  document.getElementById('v-preco').value = '';
+  document.getElementById('v-custo').value = '';
+  atualizarMargemPreview();
+  document.getElementById('v-btn-salvar').textContent = '+ Registrar Venda';
+  document.getElementById('v-btn-cancelar-edicao').style.display = 'none';
+}
+
+async function salvarVenda(){
+  const produtoId = document.getElementById('v-produto').value || null;
+  const nome = document.getElementById('v-nome').value.trim();
+  if(!nome){ toast('Coloca o nome do produto vendido'); return; }
+  const qtd = parseFloat(document.getElementById('v-qtd').value) || 1;
+  const preco = parseFloat(document.getElementById('v-preco').value) || 0;
+  const custo = parseFloat(document.getElementById('v-custo').value) || 0;
+  const margemUnit = preco - custo;
+  const payload = {
+    data: document.getElementById('v-data').value || new Date().toISOString().slice(0,10),
+    produto_id: produtoId,
+    produto_nome: nome,
+    quantidade: qtd,
+    preco_unitario: preco,
+    custo_unitario: custo,
+    margem_contribuicao_unitaria: margemUnit,
+    margem_contribuicao_total: margemUnit*qtd
+  };
+  let error;
+  if(editandoVendaId){
+    ({error} = await sb.from('vendas').update(payload).eq('id', editandoVendaId));
+  } else {
+    ({error} = await sb.from('vendas').insert(payload));
+  }
+  if(error){ toast('Erro ao salvar venda'); console.error(error); return; }
+  toast(editandoVendaId ? 'Venda atualizada!' : 'Venda registrada!');
+  cancelarEdicaoVenda();
+  atualizarMargemPreview();
+  carregarVendas();
+}
+
+async function excluirVenda(id){
+  if(!confirm('Excluir essa venda registrada?')) return;
+  const {error} = await sb.from('vendas').delete().eq('id', id);
+  if(error){ toast('Erro ao excluir'); return; }
+  toast('Venda removida');
+  carregarVendas();
+}
+
+function exportarVendasCSV(){
+  const rows = [['Data','Produto','Quantidade','Preço Unitário','Custo Unitário','Margem de Contribuição Total']];
+  vendasCache.forEach(v=> rows.push([v.data, v.produto_nome, v.quantidade, v.preco_unitario, v.custo_unitario, v.margem_contribuicao_total]));
+  baixarCSV('vendas_confeitos_manu.csv', rows);
+  toast('CSV baixado!');
+}
+
+/* ============================================================
+   CUSTOS DA LOJA
+   ============================================================ */
+async function carregarCustos(){
+  gerarCamposParcelas();
+  const {data, error} = await sb.from('custos_fixos').select('*').eq('id',1).single();
+  if(error){ toast('Erro ao carregar custos'); console.error(error); return; }
+  document.getElementById('cf-horas').value = data.horas_dia;
+  document.getElementById('cf-dias').value = data.dias_semana;
+  document.getElementById('cf-salario').value = data.salario_mensal;
+  document.getElementById('cf-aluguel').value = data.aluguel;
+  document.getElementById('cf-energia').value = data.energia;
+  document.getElementById('cf-agua').value = data.agua;
+  document.getElementById('cf-internet').value = data.internet;
+  document.getElementById('cf-funcionarios').value = data.funcionarios;
+  document.getElementById('cf-sistemas').value = data.sistemas;
+  document.getElementById('cf-outros').value = data.outros;
+  document.getElementById('cf-taxa-pix').value = data.taxa_pix;
+  document.getElementById('cf-taxa-debito').value = data.taxa_debito;
+  const parcelas = Array.isArray(data.taxa_credito_parcelas) ? data.taxa_credito_parcelas : new Array(12).fill(0);
+  for(let i=1;i<=12;i++){
+    document.getElementById('cf-parcela-'+i).value = parcelas[i-1] || 0;
+  }
+  window._perdasMesCache = await getPerdasDoMes();
+  document.getElementById('cf-perdas-mes').textContent = fmt(window._perdasMesCache);
+  document.getElementById('cf-qtd-vendida').value = data.quantidade_vendida_mes || '';
+  atualizarTotalCustos();
+  atualizarValorHora();
+  atualizarCustoMedioVenda();
+}
+
+function gerarCamposParcelas(){
+  const wrap = document.getElementById('cf-credito-parcelas');
+  if(wrap.children.length) return; // já gerado
+  let html = '';
+  for(let i=1;i<=12;i++){
+    html += `<div class="field"><label>${i}x (%)</label><input id="cf-parcela-${i}" type="number" min="0" step="0.01" placeholder="0"/></div>`;
+  }
+  wrap.innerHTML = html;
+}
+
+function atualizarTotalCustos(){
+  const ids = ['cf-aluguel','cf-energia','cf-agua','cf-internet','cf-funcionarios','cf-sistemas','cf-outros'];
+  const total = ids.reduce((s,id)=> s + (parseFloat(document.getElementById(id).value)||0), 0) + (window._perdasMesCache||0);
+  document.getElementById('cf-total').textContent = fmt(total);
+  atualizarCustoMedioVenda();
+}
+function atualizarCustoMedioVenda(){
+  const ids = ['cf-aluguel','cf-energia','cf-agua','cf-internet','cf-funcionarios','cf-sistemas','cf-outros'];
+  const total = ids.reduce((s,id)=> s + (parseFloat(document.getElementById(id).value)||0), 0) + (window._perdasMesCache||0);
+  const qtd = parseFloat(document.getElementById('cf-qtd-vendida').value) || 0;
+  const custoMedio = qtd>0 ? total/qtd : 0;
+  document.getElementById('cf-custo-medio-venda').textContent = qtd>0 ? fmt(custoMedio) : '—';
+}
+function atualizarValorHora(){
+  const horas = parseFloat(document.getElementById('cf-horas').value)||0;
+  const dias = parseFloat(document.getElementById('cf-dias').value)||0;
+  const salario = parseFloat(document.getElementById('cf-salario').value)||0;
+  const valorHora = (horas*dias*4.33)>0 ? salario/(horas*dias*4.33) : 0;
+  document.getElementById('cf-valorhora').textContent = fmt(valorHora);
+}
+['cf-aluguel','cf-energia','cf-agua','cf-internet','cf-funcionarios','cf-sistemas','cf-outros'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', atualizarTotalCustos);
+});
+document.getElementById('cf-qtd-vendida').addEventListener('input', atualizarCustoMedioVenda);
+['cf-horas','cf-dias','cf-salario'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', atualizarValorHora);
+});
+
+async function salvarCustos(){
+  const payload = {
+    id: 1,
+    horas_dia: parseFloat(document.getElementById('cf-horas').value)||0,
+    dias_semana: parseFloat(document.getElementById('cf-dias').value)||0,
+    salario_mensal: parseFloat(document.getElementById('cf-salario').value)||0,
+    aluguel: parseFloat(document.getElementById('cf-aluguel').value)||0,
+    energia: parseFloat(document.getElementById('cf-energia').value)||0,
+    agua: parseFloat(document.getElementById('cf-agua').value)||0,
+    internet: parseFloat(document.getElementById('cf-internet').value)||0,
+    funcionarios: parseFloat(document.getElementById('cf-funcionarios').value)||0,
+    sistemas: parseFloat(document.getElementById('cf-sistemas').value)||0,
+    outros: parseFloat(document.getElementById('cf-outros').value)||0,
+    quantidade_vendida_mes: parseFloat(document.getElementById('cf-qtd-vendida').value)||0,
+    taxa_pix: parseFloat(document.getElementById('cf-taxa-pix').value)||0,
+    taxa_debito: parseFloat(document.getElementById('cf-taxa-debito').value)||0,
+    taxa_credito_parcelas: Array.from({length:12}, (_,i)=> parseFloat(document.getElementById('cf-parcela-'+(i+1)).value)||0),
+    updated_at: new Date().toISOString()
+  };
+  const {error} = await sb.from('custos_fixos').upsert(payload);
+  if(error){ toast('Erro ao salvar'); console.error(error); return; }
+  toast('Custos da loja salvos!');
+}
+
+async function getCustosFixos(){
+  const {data, error} = await sb.from('custos_fixos').select('*').eq('id',1).single();
+  if(error){ console.error(error); return null; }
+  return data;
+}
+
+/* ============================================================
+   PRODUTOS — lista
+   ============================================================ */
+let produtosCache = [];
+let mostrandoArquivados = false;
+
+async function carregarProdutos(){
+  const wrap = document.getElementById('produtos-lista');
+  wrap.innerHTML = `<div class="card empty">Carregando...</div>`;
+  const {data, error} = await sb.from('produtos').select('*').order('updated_at',{ascending:false});
+  if(error){ wrap.innerHTML = '<div class="card empty">Erro ao carregar produtos</div>'; console.error(error); return; }
+  produtosCache = data || [];
+  document.getElementById('produtos-busca').value = '';
+  mostrandoArquivados = false;
+  document.getElementById('btn-toggle-arquivados').textContent = '🗑️ Ver arquivados';
+  document.getElementById('btn-nova-precificacao').style.display = 'block';
+  renderProdutos(produtosAtivos());
+}
+
+function produtosAtivos(){ return produtosCache.filter(p => mostrandoArquivados ? p.ativo===false : p.ativo!==false); }
+
+function toggleArquivados(){
+  mostrandoArquivados = !mostrandoArquivados;
+  document.getElementById('btn-toggle-arquivados').textContent = mostrandoArquivados ? '← Ver ativos' : '🗑️ Ver arquivados';
+  document.getElementById('btn-nova-precificacao').style.display = mostrandoArquivados ? 'none' : 'block';
+  document.getElementById('produtos-busca').value = '';
+  renderProdutos(produtosAtivos());
+}
+
+function filtrarProdutos(termo){
+  const t = termo.trim().toLowerCase();
+  const base = produtosAtivos();
+  if(!t){ renderProdutos(base); return; }
+  const filtrados = base.filter(p =>
+    (p.nome||'').toLowerCase().includes(t) || (p.codigo||'').toLowerCase().includes(t)
+  );
+  renderProdutos(filtrados, t);
+}
+
+function renderProdutos(lista, termoBusca){
+  const wrap = document.getElementById('produtos-lista');
+  if(!produtosAtivos().length){
+    wrap.innerHTML = mostrandoArquivados
+      ? `<div class="card"><div class="empty"><span class="ic">🗑️</span>Nenhum produto arquivado.</div></div>`
+      : `<div class="card"><div class="empty"><span class="ic">🎀</span>Nenhum produto precificado ainda.<br>Toca em "Nova Precificação" pra começar.</div></div>`;
+    return;
+  }
+  if(!lista.length){
+    wrap.innerHTML = `<div class="card"><div class="empty"><span class="ic">🔎</span>Nenhum produto encontrado para "${termoBusca}".</div></div>`;
+    return;
+  }
+  wrap.innerHTML = '';
+  lista.forEach(p=>{
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <span class="pill">${p.categoria}</span>
+        ${p.codigo ? `<span class="pill" style="background:var(--creme); color:var(--texto-suave);">${p.codigo}</span>` : ''}
+      </div>
+      <h2 style="margin-top:8px; cursor:${mostrandoArquivados?'default':'pointer'};">${p.nome}</h2>
+      <p class="sub">Atualizado em ${new Date(p.updated_at).toLocaleDateString('pt-BR')}</p>
+      <div class="price-hero" style="padding:12px; cursor:${mostrandoArquivados?'default':'pointer'};">
+        <div class="lbl" style="font-size:11px;">Preço de venda</div>
+        <div class="val" style="font-size:24px;">${fmt(p.preco_venda)}</div>
+      </div>
+      ${mostrandoArquivados ? `
+        <div class="row" style="margin-top:10px;">
+          <button class="btn btn-ghost btn-sm" onclick="restaurarProduto('${p.id}')">↩️ Restaurar</button>
+          <button class="btn btn-danger btn-sm" onclick="excluirDefinitivo('${p.id}')">🗑️ Excluir de vez</button>
+        </div>` : ''}
+      `;
+    if(!mostrandoArquivados){
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', (e)=>{ if(e.target.tagName!=='BUTTON') verProduto(p.id); });
+    }
+    wrap.appendChild(card);
+  });
+}
+
+function csvEscape(v){
+  const s = String(v ?? '');
+  return /[",\n;]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+function baixarCSV(filename, rows){
+  const csv = rows.map(r => r.map(csvEscape).join(';')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function exportarProdutosCSV(){
+  const rows = [['Nome','Categoria','Código','Custo Total','Preço de Venda','Atualizado em']];
+  produtosCache.forEach(p=> rows.push([p.nome, p.categoria, p.codigo||'', p.custo_total, p.preco_venda, new Date(p.updated_at).toLocaleDateString('pt-BR')]));
+  baixarCSV('produtos_confeitos_manu.csv', rows);
+  toast('CSV baixado!');
+}
+function exportarInsumosCSV(){
+  const rows = [['Nome','Preço','Unidade']];
+  insumosCache.forEach(i=> rows.push([i.nome, i.preco, i.unidade]));
+  baixarCSV('insumos_confeitos_manu.csv', rows);
+  toast('CSV baixado!');
+}
+
+
+/* ============================================================
+   PRODUTOS — formulário (novo / editar)
+   ============================================================ */
+let materiais = []; // { insumo_id, nome, quantidade, unidade, valor_unitario, fixo }
+let concorrentes = []; // { nome, preco }
+let editandoProdutoId = null;
+
+const RASCUNHO_KEY = 'precif_rascunho_produto';
+let rascunhoSuspenso = false;
+
+function coletarRascunho(){
+  return {
+    nome: document.getElementById('pf-nome').value,
+    categoria: document.getElementById('pf-categoria').value,
+    codigo: document.getElementById('pf-codigo').value,
+    minutos: document.getElementById('pf-minutos').value,
+    praticado: document.getElementById('pf-praticado').value,
+    margem: document.getElementById('pf-margem').value,
+    materiais: materiais,
+    concorrentes: concorrentes
+  };
+}
+function rascunhoEstaVazio(r){
+  return !r.nome && !r.codigo && !r.minutos && !r.praticado && !r.margem &&
+         (!r.materiais || !r.materiais.length) && (!r.concorrentes || !r.concorrentes.length);
+}
+function salvarRascunho(){
+  if(editandoProdutoId || rascunhoSuspenso) return; // não salva enquanto edita um produto já salvo, ou durante o reset da tela
+  try{
+    const r = coletarRascunho();
+    if(rascunhoEstaVazio(r)){ localStorage.removeItem(RASCUNHO_KEY); return; }
+    localStorage.setItem(RASCUNHO_KEY, JSON.stringify(r));
+  }catch(e){ /* localStorage indisponível — sem problema, só não salva rascunho */ }
+}
+function limparRascunho(){
+  try{ localStorage.removeItem(RASCUNHO_KEY); }catch(e){}
+}
+function carregarRascunhoSalvo(){
+  try{
+    const raw = localStorage.getItem(RASCUNHO_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+// salva o rascunho automaticamente conforme a pessoa digita, escolhe ou remove algo
+document.getElementById('view-produto-form').addEventListener('input', salvarRascunho);
+document.getElementById('view-produto-form').addEventListener('change', salvarRascunho);
+document.getElementById('view-produto-form').addEventListener('input', ()=>{
+  document.getElementById('rascunho-banner').style.display = 'none';
+});
+
+function novoProduto(){
+  editandoProdutoId = null;
+  document.getElementById('pf-titulo').textContent = 'Nova Precificação';
+  document.getElementById('pf-resultado-card').style.display = 'none';
+
+  // lê o rascunho ANTES de limpar a tela, e trava o auto-save enquanto reseta os campos
+  const rascunho = carregarRascunhoSalvo();
+  rascunhoSuspenso = true;
+  document.getElementById('pf-nome').value = '';
+  document.getElementById('pf-categoria').value = 'Buquê';
+  document.getElementById('pf-codigo').value = '';
+  document.getElementById('pf-minutos').value = '';
+  document.getElementById('pf-praticado').value = '';
+  document.getElementById('pf-margem').value = '';
+  materiais = [];
+  concorrentes = [];
+  renderMateriais();
+  renderConcorrentes();
+  rascunhoSuspenso = false;
+
+  const banner = document.getElementById('rascunho-banner');
+  if(rascunho && !rascunhoEstaVazio(rascunho)){
+    document.getElementById('rascunho-banner-texto').textContent =
+      `"${rascunho.nome || 'Sem nome ainda'}" — continua de onde parou ou começa um produto novo do zero.`;
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
+  mostrar('produto-form');
+}
+
+function continuarRascunho(){
+  const rascunho = carregarRascunhoSalvo();
+  if(!rascunho) return;
+  document.getElementById('pf-nome').value = rascunho.nome || '';
+  document.getElementById('pf-categoria').value = rascunho.categoria || 'Buquê';
+  document.getElementById('pf-codigo').value = rascunho.codigo || '';
+  document.getElementById('pf-minutos').value = rascunho.minutos || '';
+  document.getElementById('pf-praticado').value = rascunho.praticado || '';
+  document.getElementById('pf-margem').value = rascunho.margem || '';
+  materiais = rascunho.materiais || [];
+  concorrentes = rascunho.concorrentes || [];
+  renderMateriais();
+  renderConcorrentes();
+  document.getElementById('rascunho-banner').style.display = 'none';
+  toast('Continuando de onde você parou!');
+}
+
+function descartarRascunho(){
+  limparRascunho();
+  document.getElementById('rascunho-banner').style.display = 'none';
+  toast('Começando do zero.');
+}
+
+function renderMateriais(){
+  const wrap = document.getElementById('mat-lista');
+  wrap.innerHTML = '';
+  materiais.forEach((m, idx)=>{
+    const div = document.createElement('div');
+    div.className = 'mat-item';
+    if(m.fixo){
+      const options = insumosCache.map(i=>`<option value="${i.id}" ${i.id===m.insumo_id?'selected':''}>${i.nome} (${fmt(i.preco)}/${i.unidade})</option>`).join('');
+      div.innerHTML = `
+        <div class="field"><label>Insumo</label>
+          <select onchange="setInsumo(${idx}, this.value)"><option value="">Selecione...</option>${options}</select>
+        </div>
+        <div class="field"><label>Qtd usada</label><input type="number" min="0" step="0.01" value="${m.quantidade||''}" onchange="setQtd(${idx}, this.value)" /></div>
+        <div class="field"><label>Custo</label><input value="${fmt(m.valor_unitario*m.quantidade)}" disabled /></div>
+        <button class="mat-remove" onclick="removeMaterial(${idx})">✕</button>`;
+    } else {
+      div.innerHTML = `
+        <div class="field"><label>Nome</label><input value="${m.nome||''}" onchange="setNome(${idx}, this.value)" placeholder="Ex: Fita de cetim" /></div>
+        <div class="field"><label>Unidade</label><input value="${m.unidade||''}" onchange="setUnidade(${idx}, this.value)" placeholder="Ex: metro" /></div>
+        <div class="field"><label>Valor gasto (R$)</label><input type="number" min="0" step="0.01" value="${m.valor_unitario||''}" onchange="setValor(${idx}, this.value)" /></div>
+        <button class="mat-remove" onclick="removeMaterial(${idx})">✕</button>
+        <div style="grid-column:1/-1;"><button class="btn btn-ghost btn-sm" onclick="salvarComoInsumo(${idx})">🌿 Salvar como insumo fixo</button></div>`;
+    }
+    wrap.appendChild(div);
+  });
+  atualizarTotalMateriais();
+  salvarRascunho();
+}
+
+function addMaterial(fixo){
+  if(fixo && !insumosCache.length){
+    toast('Cadastre um insumo primeiro na aba Insumos');
+    return;
+  }
+  materiais.push({insumo_id:null, nome:'', quantidade:1, unidade:'', valor_unitario:0, fixo});
+  renderMateriais();
+}
+function removeMaterial(idx){ materiais.splice(idx,1); renderMateriais(); }
+
+function renderConcorrentes(){
+  const wrap = document.getElementById('conc-lista');
+  wrap.innerHTML = '';
+  concorrentes.forEach((c, idx)=>{
+    const div = document.createElement('div');
+    div.className = 'mat-item';
+    div.style.gridTemplateColumns = '2fr 1fr auto';
+    div.innerHTML = `
+      <div class="field"><label>Concorrente</label><input value="${c.nome||''}" onchange="setConcorrenteNome(${idx}, this.value)" placeholder="Ex: Floricultura X" /></div>
+      <div class="field"><label>Preço (R$)</label><input type="number" min="0" step="0.01" value="${c.preco||''}" onchange="setConcorrentePreco(${idx}, this.value)" /></div>
+      <button class="mat-remove" onclick="removeConcorrente(${idx})">✕</button>`;
+    wrap.appendChild(div);
+  });
+  salvarRascunho();
+}
+function addConcorrente(){ concorrentes.push({nome:'', preco:0}); renderConcorrentes(); }
+function removeConcorrente(idx){ concorrentes.splice(idx,1); renderConcorrentes(); }
+function setConcorrenteNome(idx, v){ concorrentes[idx].nome = v; }
+function setConcorrentePreco(idx, v){ concorrentes[idx].preco = parseFloat(v)||0; }
+
+function renderConcorrentesComparativo(containerId, precoCalculado, lista){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const validos = (lista||[]).filter(c => c.nome && c.preco > 0);
+  if(!validos.length){ el.innerHTML=''; return; }
+
+  const todos = [{nome:'Você', preco:precoCalculado, voce:true}, ...validos.map(c=>({...c, voce:false}))];
+  todos.sort((a,b)=> a.preco - b.preco);
+  const maxPreco = Math.max(...todos.map(t=>t.preco), 0.01);
+  const media = validos.reduce((s,c)=>s+c.preco,0) / validos.length;
+
+  let html = `<p class="hint" style="margin-bottom:10px;">🔍 Você vs. Concorrentes (média deles: ${fmt(media)})</p>`;
+  html += `<div class="conc-chart">`;
+  todos.forEach((t, i)=>{
+    const pct = Math.round((t.preco / maxPreco) * 100);
+    const corBarra = t.voce ? 'var(--dourado)' : 'var(--marrom-claro)';
+    const bgBarra = 'var(--creme)';
+    html += `
+      <div class="conc-bar-row">
+        <div class="conc-bar-label">${t.voce ? '⭐ Você' : t.nome}</div>
+        <div class="conc-bar-track" style="background:${bgBarra};">
+          <div class="conc-bar-fill" data-pct="${pct}" style="background:${corBarra};"></div>
+        </div>
+        <div class="conc-bar-valor">${fmt(t.preco)}</div>
+      </div>`;
+  });
+  html += `</div>`;
+  el.innerHTML = html;
+
+  // anima as barras crescendo (efeito visual + confirma que carregou)
+  requestAnimationFrame(()=>{
+    el.querySelectorAll('.conc-bar-fill').forEach(bar=>{
+      requestAnimationFrame(()=>{ bar.style.width = bar.dataset.pct + '%'; });
+    });
+  });
+}
+
+async function salvarComoInsumo(idx){
+  const m = materiais[idx];
+  if(!m.nome || !m.nome.trim()){ toast('Dá um nome pro item antes de salvar como insumo'); return; }
+  if(!confirm(`Salvar "${m.nome}" como insumo fixo (R$ ${m.valor_unitario||0} por ${m.unidade||'unidade'})?`)) return;
+  const {data, error} = await sb.from('insumos').insert({
+    nome: m.nome.trim(), preco: m.valor_unitario||0, unidade: m.unidade?.trim() || 'unidade'
+  }).select().single();
+  if(error){ toast('Erro ao salvar insumo'); console.error(error); return; }
+  await carregarInsumos();
+  materiais[idx] = { insumo_id: data.id, nome: data.nome, quantidade: 1, unidade: data.unidade, valor_unitario: data.preco, fixo: true };
+  renderMateriais();
+  toast('Insumo cadastrado! Já apliquei aqui neste produto.');
+}
+function setInsumo(idx, id){
+  const ins = insumosCache.find(i=>i.id===id);
+  if(!ins) return;
+  materiais[idx].insumo_id = ins.id;
+  materiais[idx].nome = ins.nome;
+  materiais[idx].unidade = ins.unidade;
+  materiais[idx].valor_unitario = ins.preco;
+  renderMateriais();
+}
+function setQtd(idx, v){ materiais[idx].quantidade = parseFloat(v)||0; renderMateriais(); }
+function setNome(idx, v){ materiais[idx].nome = v; }
+function setUnidade(idx, v){ materiais[idx].unidade = v; }
+function setValor(idx, v){ materiais[idx].valor_unitario = parseFloat(v)||0; materiais[idx].quantidade = 1; renderMateriais(); }
+
+function custoMateriaisTotal(){
+  return materiais.reduce((s,m)=> s + (m.fixo ? (m.valor_unitario*(m.quantidade||0)) : (m.valor_unitario||0)), 0);
+}
+function atualizarTotalMateriais(){
+  document.getElementById('mat-total').textContent = fmt(custoMateriaisTotal());
+}
+
+async function calcular(){
+  const custos = await getCustosFixos();
+  if(!custos){ toast('Configure os Custos da Loja primeiro'); return; }
+  const minutosProduto = parseFloat(document.getElementById('pf-minutos').value) || 0;
+  const margemPct = (parseFloat(document.getElementById('pf-margem').value) || 0) / 100;
+  const perdasMes = await getPerdasDoMes();
+
+  const totalFixos = custos.aluguel + custos.energia + custos.agua + custos.internet + custos.funcionarios + custos.sistemas + custos.outros + perdasMes;
+  const minutosMes = (custos.horas_dia||0) * (custos.dias_semana||0) * 4.33 * 60;
+  const rateioLoja = minutosMes>0 ? (totalFixos/minutosMes) * minutosProduto : 0;
+  const custoMaoDeObra = minutosMes>0 ? ((custos.salario_mensal||0)/minutosMes) * minutosProduto : 0;
+
+  const custoMateriais = custoMateriaisTotal();
+  const custoTotal = custoMateriais + custoMaoDeObra + rateioLoja;
+  const { lucro, precoVenda, limitada } = calcularPrecoComMargem(custoTotal, margemPct);
+  if(limitada){ toast('Margem de 100% ou mais não é possível nesse método — usei 95% pra calcular.'); }
+
+  document.getElementById('res-materiais').textContent = fmt(custoMateriais);
+  document.getElementById('res-maodeobra').textContent = fmt(custoMaoDeObra);
+  document.getElementById('res-rateio').textContent = fmt(rateioLoja);
+  document.getElementById('res-custo').textContent = fmt(custoTotal);
+  document.getElementById('res-lucro').textContent = fmt(lucro);
+  document.getElementById('res-preco').textContent = fmt(precoVenda);
+  document.getElementById('res-status').innerHTML = statusBadgeHTML(margemPct);
+  renderCartaoRapido('res-cartao-rapido', precoVenda, custos);
+  renderArredondamento('res-arredondar', precoVenda);
+  const precoPraticado = parseFloat(document.getElementById('pf-praticado').value);
+  renderComparativo('res-comparativo', precoVenda, precoPraticado, custoTotal);
+  renderConcorrentesComparativo('res-concorrentes', precoVenda, concorrentes);
+  document.getElementById('pf-resultado-card').style.display = 'block';
+
+  window._ultimoCalculo = {custoMateriais, custoMaoDeObra, rateioLoja, custoTotal, lucro, precoVenda};
+  return window._ultimoCalculo;
+}
+
+async function salvarProduto(){
+  const nome = document.getElementById('pf-nome').value.trim();
+  if(!nome){ toast('Dá um nome pro produto'); return; }
+  const calc = await calcular();
+  const precoPraticadoVal = document.getElementById('pf-praticado').value;
+
+  const payload = {
+    nome,
+    categoria: document.getElementById('pf-categoria').value,
+    codigo: document.getElementById('pf-codigo').value.trim(),
+    materiais: materiais,
+    concorrentes: concorrentes,
+    minutos_producao: parseFloat(document.getElementById('pf-minutos').value)||0,
+    margem: (parseFloat(document.getElementById('pf-margem').value)||0)/100,
+    preco_venda: calc.precoVenda,
+    custo_total: calc.custoTotal,
+    preco_praticado: precoPraticadoVal ? parseFloat(precoPraticadoVal) : null,
+    updated_at: new Date().toISOString()
+  };
+
+  if(editandoProdutoId){
+    const {error} = await sb.from('produtos').update(payload).eq('id', editandoProdutoId);
+    if(error){ toast('Erro ao salvar'); console.error(error); return; }
+  } else {
+    const {error} = await sb.from('produtos').insert(payload);
+    if(error){ toast('Erro ao salvar'); console.error(error); return; }
+  }
+  toast('Produto salvo!');
+  limparRascunho();
+  mostrar('produtos');
+}
+
+/* ============================================================
+   PRODUTOS — visualizar / editar / duplicar / excluir
+   ============================================================ */
+window.currentProdutoId = null;
+
+async function verProduto(id){
+  const {data, error} = await sb.from('produtos').select('*').eq('id', id).single();
+  if(error){ toast('Erro ao carregar produto'); console.error(error); return; }
+  window.currentProdutoId = id;
+
+  // recalcula com os preços ATUAIS dos insumos (é o pulo do gato)
+  await carregarInsumos();
+  const custos = await getCustosFixos();
+  const perdasMes = await getPerdasDoMes();
+  const totalFixos = custos.aluguel + custos.energia + custos.agua + custos.internet + custos.funcionarios + custos.sistemas + custos.outros + perdasMes;
+  const minutosMes = (custos.horas_dia||0) * (custos.dias_semana||0) * 4.33 * 60;
+  const rateioLoja = minutosMes>0 ? (totalFixos/minutosMes) * (data.minutos_producao||0) : 0;
+  const custoMaoDeObra = minutosMes>0 ? ((custos.salario_mensal||0)/minutosMes) * (data.minutos_producao||0) : 0;
+
+  const custoMateriais = (data.materiais||[]).reduce((s,m)=>{
+    if(m.fixo && m.insumo_id){
+      const insAtual = insumosCache.find(i=>i.id===m.insumo_id);
+      const preco = insAtual ? insAtual.preco : m.valor_unitario;
+      return s + preco*(m.quantidade||0);
+    }
+    return s + (m.fixo ? m.valor_unitario*(m.quantidade||0) : (m.valor_unitario||0));
+  }, 0);
+  const custoTotal = custoMateriais + custoMaoDeObra + rateioLoja;
+  const { lucro, precoVenda, limitada } = calcularPrecoComMargem(custoTotal, data.margem||0);
+  if(limitada){ toast('Esse produto tem margem de 100%+ salva (do método antigo) — usei 95% pra recalcular. Ajuste a margem dele.'); }
+
+  document.getElementById('pv-nome').textContent = data.nome;
+  document.getElementById('pv-categoria').textContent = data.categoria;
+  document.getElementById('pv-codigo').textContent = data.codigo || '';
+  document.getElementById('pv-materiais').textContent = fmt(custoMateriais);
+  document.getElementById('pv-maodeobra').textContent = fmt(custoMaoDeObra);
+  document.getElementById('pv-rateio').textContent = fmt(rateioLoja);
+  document.getElementById('pv-custo').textContent = fmt(custoTotal);
+  document.getElementById('pv-lucro').textContent = fmt(lucro);
+  document.getElementById('pv-preco').textContent = fmt(precoVenda);
+  document.getElementById('pv-status').innerHTML = statusBadgeHTML(data.margem||0);
+  renderCartaoRapido('pv-cartao-rapido', precoVenda, custos);
+  renderArredondamento('pv-arredondar', precoVenda);
+  renderComparativo('pv-comparativo', precoVenda, data.preco_praticado, custoTotal);
+  renderConcorrentesComparativo('pv-concorrentes', precoVenda, data.concorrentes);
+
+  window._precoVendaAtual = precoVenda;
+  const parcelas = Array.isArray(custos.taxa_credito_parcelas) ? custos.taxa_credito_parcelas : new Array(12).fill(0);
+  window._taxasPagamento = { pix: custos.taxa_pix||0, debito: custos.taxa_debito||0, credito_parcelas: parcelas };
+  document.getElementById('pv-forma-pagamento').value = '0';
+  document.getElementById('pv-taxa-resultado').style.display = 'none';
+
+  // atualiza o cache salvo se o preço mudou (por causa de reajuste de insumo)
+  if(Math.abs(precoVenda - data.preco_venda) > 0.001){
+    await sb.from('produtos').update({preco_venda:precoVenda, custo_total:custoTotal}).eq('id', id);
+  }
+
+  mostrar('produto-ver');
+}
+
+function atualizarPrecoComTaxa(){
+  const forma = document.getElementById('pv-forma-pagamento').value;
+  const box = document.getElementById('pv-taxa-resultado');
+  if(forma === '0'){ box.style.display = 'none'; return; }
+  const preco = window._precoVendaAtual || 0;
+  let taxaPct = 0;
+  let label = '';
+  if(forma === 'pix'){
+    taxaPct = (window._taxasPagamento?.pix || 0) / 100;
+    label = `Preço com taxa de Pix (${(taxaPct*100).toFixed(2)}%)`;
+  } else if(forma === 'debito'){
+    taxaPct = (window._taxasPagamento?.debito || 0) / 100;
+    label = `Preço com taxa de Débito (${(taxaPct*100).toFixed(2)}%)`;
+  } else if(forma.startsWith('credito_')){
+    const n = parseInt(forma.split('_')[1], 10);
+    taxaPct = (window._taxasPagamento?.credito_parcelas?.[n-1] || 0) / 100;
+    label = `Preço com taxa de Crédito ${n}x (${(taxaPct*100).toFixed(2)}%)`;
+  }
+  const precoComTaxa = taxaPct < 1 ? preco / (1 - taxaPct) : preco;
+  document.getElementById('pv-taxa-label').textContent = label;
+  document.getElementById('pv-preco-com-taxa').textContent = fmt(precoComTaxa);
+  box.style.display = 'block';
+}
+
+async function editarProduto(id){
+  const {data, error} = await sb.from('produtos').select('*').eq('id', id).single();
+  if(error){ toast('Erro ao carregar produto'); return; }
+  await carregarInsumos();
+  editandoProdutoId = id;
+  document.getElementById('pf-titulo').textContent = 'Editar Precificação';
+  document.getElementById('pf-nome').value = data.nome;
+  document.getElementById('pf-categoria').value = data.categoria;
+  document.getElementById('pf-codigo').value = data.codigo || '';
+  document.getElementById('pf-minutos').value = data.minutos_producao;
+  document.getElementById('pf-praticado').value = data.preco_praticado || '';
+  document.getElementById('pf-margem').value = (data.margem||0)*100;
+  materiais = data.materiais || [];
+  concorrentes = data.concorrentes || [];
+  renderMateriais();
+  renderConcorrentes();
+  document.getElementById('pf-resultado-card').style.display = 'none';
+  mostrar('produto-form');
+}
+
+async function duplicarProduto(id){
+  const {data, error} = await sb.from('produtos').select('*').eq('id', id).single();
+  if(error){ toast('Erro ao duplicar'); return; }
+  const {id:_omit, created_at, updated_at, ...rest} = data;
+  const {error:err2} = await sb.from('produtos').insert({...rest, nome: rest.nome + ' (cópia)'});
+  if(err2){ toast('Erro ao duplicar'); console.error(err2); return; }
+  toast('Produto duplicado!');
+  mostrar('produtos');
+}
+
+async function excluirProduto(id){
+  if(!confirm('Arquivar este produto? Ele some da lista, mas fica guardado na lixeira — dá pra restaurar depois.')) return;
+  const {error} = await sb.from('produtos').update({ativo:false, updated_at:new Date().toISOString()}).eq('id', id);
+  if(error){ toast('Erro ao arquivar'); return; }
+  toast('Produto arquivado');
+  mostrar('produtos');
+}
+
+async function restaurarProduto(id){
+  const {error} = await sb.from('produtos').update({ativo:true, updated_at:new Date().toISOString()}).eq('id', id);
+  if(error){ toast('Erro ao restaurar'); return; }
+  toast('Produto restaurado!');
+  await carregarProdutos();
+}
+
+async function excluirDefinitivo(id){
+  if(!confirm('Excluir de vez? Isso não pode ser desfeito.')) return;
+  const {error} = await sb.from('produtos').delete().eq('id', id);
+  if(error){ toast('Erro ao excluir'); return; }
+  toast('Produto excluído definitivamente');
+  const {data} = await sb.from('produtos').select('*').order('updated_at',{ascending:false});
+  produtosCache = data || [];
+  renderProdutos(produtosAtivos());
+}
+
+/* ---------------- Start ---------------- */
+carregarProdutos();
+
+</script>
+<!-- ================= FIM LÓGICA DE PRECIFICAÇÃO ================= -->
 </body>
 </html>
