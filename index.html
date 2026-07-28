@@ -212,7 +212,7 @@
 .precificacao-embed header.top p { margin:2px 0 0; font-size:12.5px; color:var(--dourado-claro); font-family:'Inter'; }
 .precificacao-embed nav.tabs {
     display:flex; background:var(--branco); border-bottom:1px solid var(--creme-escuro);
-    position:sticky; top:64px; z-index:19; overflow-x:auto;
+    position:sticky; top:0; z-index:19; overflow-x:auto;
   }
 .precificacao-embed nav.tabs button {
     flex:1; min-width:110px; padding:13px 8px; background:none; border:none; cursor:pointer;
@@ -568,12 +568,19 @@
           <input id="ins-unidade" placeholder="Ex: unidade" />
         </div>
       </div>
+      <div class="field">
+        <label>Código da nota fiscal (opcional)</label>
+        <input id="ins-codigo" placeholder="Ex: 7896931614341" />
+      </div>
       <button class="btn btn-primary" id="ins-btn-salvar" onclick="salvarInsumo()">+ Adicionar Insumo</button>
     </div>
     <div class="card">
       <div class="row" style="justify-content:space-between; align-items:center;">
         <h2 style="margin:0;">Lista de Insumos</h2>
         <button class="btn btn-ghost btn-sm" onclick="exportarInsumosCSV()">⬇️ Exportar CSV</button>
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <input id="ins-busca" placeholder="🔎 Buscar por nome ou código..." oninput="filtrarInsumos(this.value)" style="width:100%;" />
       </div>
       <table class="list">
         <thead><tr><th>Nome</th><th>Preço</th><th>Unidade</th><th></th></tr></thead>
@@ -662,14 +669,11 @@
       <div style="text-align:right; font-size:14.5px; margin-top:4px;">Total mensal (com perdas): <strong id="cf-total">R$ 0,00</strong></div>
     </div>
     <div class="card">
-      <h2>📊 Custo Fixo Médio por Venda (informativo)</h2>
-      <p class="sub">Isso NÃO entra no cálculo do preço — é só um indicador pra você acompanhar, olhando pra trás no mês. O preço de cada produto continua sendo calculado pelo tempo de produção dele.</p>
-      <div class="field">
-        <label>Quantas vendas você fez este mês?</label>
-        <input id="cf-qtd-vendida" type="number" min="0" placeholder="Ex: 40" />
-      </div>
-      <div class="result-box" style="width:100%;">
-        <div class="lbl">Custo fixo médio por venda</div>
+      <h2>📊 Vendas por Mês (histórico)</h2>
+      <p class="sub">Anote quantas vendas você fez em cada mês. Isso calcula o custo fixo médio por venda de cada período.</p>
+      <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:12px;" id="vendas-mensais-grid"></div>
+      <div class="result-box" style="width:100%; margin-top:4px;">
+        <div class="lbl">Custo fixo médio por venda — mês atual</div>
         <div class="val" id="cf-custo-medio-venda" style="font-size:22px;">R$ 0,00</div>
       </div>
     </div>
@@ -723,7 +727,6 @@
       errorMsg: "",
       notas: [],
       aliases: {},
-      estoque: [],
       produtoQuery: "",
       produtoAberto: null,
       selectMode: false,
@@ -735,16 +738,9 @@
       enviarPrecoOriginal: 0,
       enviarDivisor: 1,
       enviarPrecoFinal: 0,
-      showEstoqueForm: false,
-      editandoEstoqueId: null,
       fotoStatus: "idle",
-      estoqueForm: emptyEstoqueForm(),
-      signedUrls: {},
+      confirmDuplicata: false,
     };
-
-    function emptyEstoqueForm() {
-      return { nome: "", categoria: "Ingrediente", quantidade: "", unidade: "un", precoUnitario: "", precoVenda: "", status: "girando", obs: "", fotoPath: null, fotoPreviewLocal: null };
-    }
 
     // ---------- helpers ----------
     function brl(n) {
@@ -818,14 +814,13 @@
 
     // ---------- supabase: dados ----------
     async function carregarTudo() {
-      const [{ data: notasData, error: e1 }, { data: itensData, error: e2 }, { data: aliasesData, error: e3 }, { data: estoqueData, error: e4 }] = await Promise.all([
-        sb.from("notas").select("*").order("criado_em", { ascending: false }),
+      const [{ data: notasData, error: e1 }, { data: itensData, error: e2 }, { data: aliasesData, error: e3 }] = await Promise.all([
+        sb.from("notas").select("*").order("data_compra", { ascending: false }),
         sb.from("itens_nota").select("*"),
         sb.from("produto_aliases").select("*"),
-        sb.from("estoque").select("*").order("criado_em", { ascending: false }),
       ]);
-      if (e1 || e2 || e3 || e4) {
-        console.error(e1, e2, e3, e4);
+      if (e1 || e2 || e3) {
+        console.error(e1, e2, e3);
         toast("Erro ao carregar dados do banco");
         return;
       }
@@ -837,18 +832,7 @@
       state.notas = notasData.map((n) => ({ ...n, items: itensPorNota[n.id] || [] }));
       state.aliases = {};
       for (const a of aliasesData) state.aliases[a.variant_key] = a.nome_canonico;
-      state.estoque = estoqueData;
-      await carregarUrlsAssinadas();
       render();
-    }
-
-    async function carregarUrlsAssinadas() {
-      const paths = state.estoque.map((e) => e.foto_url).filter(Boolean);
-      for (const path of paths) {
-        if (state.signedUrls[path]) continue;
-        const { data } = await sb.storage.from(BUCKET).createSignedUrl(path, 60 * 60 * 24);
-        if (data) state.signedUrls[path] = data.signedUrl;
-      }
     }
 
     // ---------- captura de nota ----------
@@ -938,12 +922,26 @@
       }
     }
 
-    async function confirmSave() {
+    async function confirmSave(forcar) {
       const selected = state.items.filter((it) => it.incluir && it.nome.trim());
       if (selected.length === 0) return;
+      const lojaAtual = state.loja || "Mercado";
+      const dataAtual = state.dataCompra || todayLabel();
+
+      // Pedido #9 — verificar duplicidade por loja + data
+      if (!forcar) {
+        const { data: dupes } = await sb.from("notas").select("id").eq("loja", lojaAtual).eq("data_compra", dataAtual).limit(1);
+        if (dupes && dupes.length > 0) {
+          state.confirmDuplicata = true;
+          render();
+          return;
+        }
+      }
+      state.confirmDuplicata = false;
+
       const notaId = `nota-${Date.now()}`;
       const total = selected.reduce((s, it) => s + (Number(it.precoTotal) || 0), 0);
-      const { error: e1 } = await sb.from("notas").insert({ id: notaId, loja: state.loja || "Mercado", data_compra: state.dataCompra || todayLabel(), total });
+      const { error: e1 } = await sb.from("notas").insert({ id: notaId, loja: lojaAtual, data_compra: dataAtual, total });
       if (e1) { console.error(e1); toast("Erro ao salvar a nota"); return; }
       const itensParaInserir = selected.map((it) => ({ nota_id: notaId, codigo: it.codigo, nome: it.nome, quantidade: it.quantidade, preco_unitario: it.precoUnitario, preco_total: it.precoTotal }));
       const { error: e2 } = await sb.from("itens_nota").insert(itensParaInserir);
@@ -1052,94 +1050,45 @@
       await carregarTudo();
     }
 
-    // ---------- estoque ----------
-    async function handleEstoqueFile(e) {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-      state.fotoStatus = "loading";
-      render();
-      try {
-        let blob;
-        try {
-          blob = await resizeImageToBlob(file);
-        } catch {
-          blob = file;
-        }
-        const path = `estoque/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-        const { error } = await sb.storage.from(BUCKET).upload(path, blob, { contentType: "image/jpeg" });
-        if (error) throw error;
-        state.estoqueForm.fotoPath = path;
-        const { data: signed } = await sb.storage.from(BUCKET).createSignedUrl(path, 60 * 60 * 24);
-        state.estoqueForm.fotoPreviewLocal = signed ? signed.signedUrl : null;
-        state.fotoStatus = "idle";
-        render();
-      } catch (err) {
-        console.error(err);
-        state.fotoStatus = "error";
-        render();
-      }
+    function renderMergeModal() {
+      return `
+        <div class="merge-modal-backdrop" onclick="app.fecharMergeModal()">
+          <div class="merge-modal" onclick="event.stopPropagation()">
+            <h4>Unir como qual nome?</h4>
+            <input type="text" value="${esc(state.mergeNomeInput)}" oninput="app.setMergeNomeInput(this.value)" />
+            <div class="action-row">
+              <button class="btn btn-ghost" onclick="app.fecharMergeModal()">Cancelar</button>
+              <button class="btn btn-primary" onclick="app.confirmarUniao()">Unir produtos</button>
+            </div>
+          </div>
+        </div>`;
     }
 
-    function sugestaoPrecoEstoque() {
-      const key = normalize(state.estoqueForm.nome);
-      if (!key || key.length < 3) return null;
-      const match = produtosAgrupados().find((p) => normalize(p.nome) === key || p.variantes.some((v) => v.key === key));
-      return match && match.ultimoPreco > 0 ? match : null;
+    function renderEnviarModal() {
+      return `
+        <div class="merge-modal-backdrop" onclick="app.fecharModalEnviar()">
+          <div class="merge-modal" onclick="event.stopPropagation()">
+            <h4>Enviar "${esc(state.enviarNomeAlvo)}"</h4>
+            <p class="enviar-preco-original">Preço cadastrado: ${brl(state.enviarPrecoOriginal)}</p>
+            <label class="enviar-label">Esse preço é de um pacote/caixa? Divide por quantas partes:</label>
+            <div class="divisor-quick">
+              <button type="button" class="${state.enviarDivisor === 1 ? "ativo" : ""}" onclick="app.setEnviarDivisor(1)">1 (preço inteiro)</button>
+              <button type="button" class="${state.enviarDivisor === 2 ? "ativo" : ""}" onclick="app.setEnviarDivisor(2)">2</button>
+              <button type="button" class="${state.enviarDivisor === 3 ? "ativo" : ""}" onclick="app.setEnviarDivisor(3)">3</button>
+              <button type="button" class="${state.enviarDivisor === 4 ? "ativo" : ""}" onclick="app.setEnviarDivisor(4)">4</button>
+            </div>
+            <input id="enviar-divisor-input" type="number" min="1" step="1" value="${state.enviarDivisor}" oninput="app.setEnviarDivisor(this.value)" placeholder="outro número..." />
+            <label class="enviar-label" style="margin-top:14px">Valor que será enviado (pode ajustar à mão):</label>
+            <input id="enviar-preco-input" type="number" step="any" value="${state.enviarPrecoFinal.toFixed(2)}" oninput="app.setEnviarPrecoManual(this.value)" />
+            <p class="enviar-nota-segura">Isso não altera nada nas suas notas cadastradas — só o valor enviado pra precificação.</p>
+            <div class="action-row">
+              <button class="btn btn-ghost" onclick="app.fecharModalEnviar()">Cancelar</button>
+              <button class="btn btn-primary" onclick="app.confirmarEnvio()">Enviar</button>
+            </div>
+          </div>
+        </div>`;
     }
 
-    async function salvarEstoque() {
-      const f = state.estoqueForm;
-      if (!f.nome.trim()) return;
-      const payload = {
-        nome: f.nome, categoria: f.categoria, quantidade: f.quantidade || null, unidade: f.unidade,
-        preco_unitario: f.precoUnitario || null, preco_venda: f.precoVenda || null, status: f.status, obs: f.obs, foto_url: f.fotoPath,
-      };
-      let error;
-      if (state.editandoEstoqueId) {
-        ({ error } = await sb.from("estoque").update(payload).eq("id", state.editandoEstoqueId));
-      } else {
-        payload.id = `estoque-${Date.now()}`;
-        ({ error } = await sb.from("estoque").insert(payload));
-      }
-      if (error) { console.error(error); toast("Erro ao salvar item"); return; }
-      fecharFormularioEstoque();
-      await carregarTudo();
-      toast("Item salvo!");
-    }
-
-    function abrirEdicaoEstoque(item) {
-      state.editandoEstoqueId = item.id;
-      state.estoqueForm = {
-        nome: item.nome, categoria: item.categoria, quantidade: item.quantidade ?? "", unidade: item.unidade || "un",
-        precoUnitario: item.preco_unitario ?? "", precoVenda: item.preco_venda ?? "", status: item.status, obs: item.obs || "",
-        fotoPath: item.foto_url || null, fotoPreviewLocal: item.foto_url ? state.signedUrls[item.foto_url] : null,
-      };
-      state.showEstoqueForm = true;
-      render();
-    }
-    function fecharFormularioEstoque() {
-      state.estoqueForm = emptyEstoqueForm();
-      state.showEstoqueForm = false;
-      state.editandoEstoqueId = null;
-      state.fotoStatus = "idle";
-      render();
-    }
-    async function deleteEstoque(id) {
-      const { error } = await sb.from("estoque").delete().eq("id", id);
-      if (error) { console.error(error); toast("Erro ao remover"); return; }
-      await carregarTudo();
-    }
-    async function toggleEstoqueStatus(id) {
-      const item = state.estoque.find((e) => e.id === id);
-      if (!item) return;
-      const novo = item.status === "girando" ? "parado" : "girando";
-      const { error } = await sb.from("estoque").update({ status: novo }).eq("id", id);
-      if (error) { console.error(error); return; }
-      await carregarTudo();
-    }
-
-    // ---------- backup ----------
-    // ---------- envio pro app de precificação ----------
     function abrirModalEnviar(nome, preco) {
       state.enviarNomeAlvo = nome;
       state.enviarPrecoOriginal = preco;
@@ -1161,7 +1110,6 @@
       if (divisorInput && Number(divisorInput.value) !== state.enviarDivisor) divisorInput.value = state.enviarDivisor;
     }
     function setEnviarPrecoManual(v) {
-      // edição direta do valor final — não mexe na nota original, só no que será enviado
       state.enviarPrecoFinal = Number(v) || 0;
     }
     async function confirmarEnvio() {
@@ -1169,25 +1117,18 @@
       state.enviarModalOpen = false;
       render();
     }
-
     async function enviarParaPrecificacao(nome, preco) {
       try {
         const { data: existentes, error: e1 } = await sbPrecificacao
-          .from("insumos")
-          .select("id")
-          .ilike("nome", nome.trim());
+          .from("insumos").select("id").ilike("nome", nome.trim());
         if (e1) throw e1;
-
         if (existentes && existentes.length > 0) {
-          const { error: e2 } = await sbPrecificacao
-            .from("insumos")
-            .update({ preco, updated_at: new Date().toISOString() })
-            .eq("id", existentes[0].id);
+          const { error: e2 } = await sbPrecificacao.from("insumos")
+            .update({ preco, updated_at: new Date().toISOString() }).eq("id", existentes[0].id);
           if (e2) throw e2;
           toast(`Preço de "${nome}" atualizado na precificação!`);
         } else {
-          const { error: e3 } = await sbPrecificacao
-            .from("insumos")
+          const { error: e3 } = await sbPrecificacao.from("insumos")
             .insert({ nome: nome.trim(), preco, unidade: "unidade" });
           if (e3) throw e3;
           toast(`"${nome}" cadastrado na precificação!`);
@@ -1196,19 +1137,6 @@
         console.error(err);
         toast("Erro ao enviar pra precificação");
       }
-    }
-
-    function exportarBackup() {
-      const backup = { exportadoEm: new Date().toISOString(), notas: state.notas, produtoAliases: state.aliases, estoque: state.estoque };
-      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `backup-confeitos-${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
     }
 
     // ---------- render ----------
@@ -1221,7 +1149,6 @@
               <h1>Insumos por foto</h1>
               <p>fotografe, compare preços e organize o estoque</p>
             </div>
-            <button class="btn-backup" onclick="app.exportarBackup()">⬇ backup</button>
           </div>
         </div>
         <div class="content">${renderTabContent()}</div>
@@ -1231,7 +1158,6 @@
           <button class="${state.tab === "nova" ? "active" : ""}" onclick="app.setTab('nova')">📸<br>Nova nota</button>
           <button class="${state.tab === "notas" ? "active" : ""}" onclick="app.setTab('notas')">🧾<br>Notas</button>
           <button class="${state.tab === "produtos" ? "active" : ""}" onclick="app.setTab('produtos')">📊<br>Produtos</button>
-          <button class="${state.tab === "estoque" ? "active" : ""}" onclick="app.setTab('estoque')">📦<br>Estoque</button>
           <button class="${state.tab === "precificacao" ? "active" : ""}" onclick="app.setTab('precificacao')">💰<br>Preços</button>
         </div>
       `;
@@ -1241,7 +1167,6 @@
       if (state.tab === "nova") return renderNova();
       if (state.tab === "notas") return renderNotas();
       if (state.tab === "produtos") return renderProdutos();
-      if (state.tab === "estoque") return renderEstoque();
       return "";
     }
 
@@ -1304,10 +1229,16 @@
               <div class="receipt-edge" style="transform:scaleY(-1)"></div>
             </div>
             <div class="scissors-note">✂ confira os itens antes de salvar</div>
+            ${state.confirmDuplicata ? `
+            <div class="error-box" style="margin-top:12px;">⚠️ Já existe uma nota desta loja nesta data. É uma nota diferente mesmo?</div>
+            <div class="action-row">
+              <button class="btn btn-ghost" onclick="app.cancelarDuplicata()">Cancelar</button>
+              <button class="btn btn-primary" onclick="app.confirmSaveForcar()">Lançar mesmo assim</button>
+            </div>` : `
             <div class="action-row">
               <button class="btn btn-ghost" onclick="app.resetCaptureUI()">Descartar</button>
-              <button class="btn btn-primary" onclick="app.confirmSave()">Adicionar aos insumos</button>
-            </div>
+              <button class="btn btn-primary" onclick="app.confirmSave(false)">Adicionar aos insumos</button>
+            </div>`}
           </div>`;
       }
       return "";
@@ -1317,10 +1248,35 @@
       if (state.notas.length === 0) {
         return `<div class="empty-state"><span class="icon">🧾</span><p>Nenhuma nota cadastrada ainda.<br>Fotografe uma na aba "Nova nota".</p></div>`;
       }
-      const totalGeral = state.notas.reduce((s, n) => s + (Number(n.total) || 0), 0);
-      return `
-        <div class="summary-bar"><span class="label">gasto total registrado</span><span class="value">${brl(totalGeral)}</span></div>
-        ${state.notas.map((nota) => `
+      // Pedido #11 — agrupar por mês/ano e exibir totais mensais
+      const porMes = {};
+      for (const nota of state.notas) {
+        // data_compra pode ser "28/07/2026" ou "28 jul. 2026" — extrair mês/ano
+        const raw = nota.data_compra || "";
+        let mesKey = "Sem data";
+        const m1 = raw.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        const m2 = raw.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (m1) mesKey = `${m1[2]}/${m1[3]}`;
+        else if (m2) mesKey = `${m2[2]}/${m2[1]}`;
+        else { const partes = raw.split(/[\s\/\-]/); if (partes.length >= 3) mesKey = raw.slice(-7); }
+        if (!porMes[mesKey]) porMes[mesKey] = { total: 0, notas: [] };
+        porMes[mesKey].total += Number(nota.total) || 0;
+        porMes[mesKey].notas.push(nota);
+      }
+      const meses = Object.entries(porMes);
+      // Ordenar meses: mais recente primeiro
+      meses.sort(([a], [b]) => {
+        const [ma, aa] = a.split("/");
+        const [mb, ab] = b.split("/");
+        return (Number(ab)*12 + Number(mb)) - (Number(aa)*12 + Number(ma));
+      });
+      const MESES_PT = { "01":"Janeiro","02":"Fevereiro","03":"Março","04":"Abril","05":"Maio","06":"Junho","07":"Julho","08":"Agosto","09":"Setembro","10":"Outubro","11":"Novembro","12":"Dezembro" };
+      let html = "";
+      for (const [mesKey, dados] of meses) {
+        const [mes, ano] = mesKey.split("/");
+        const label = MESES_PT[mes] ? `${MESES_PT[mes]} ${ano}` : mesKey;
+        html += `<div class="summary-bar" style="margin-bottom:4px;"><span class="label">${label}</span><span class="value">${brl(dados.total)}</span></div>`;
+        html += dados.notas.map((nota) => `
           <div class="nota-card">
             <div class="nota-card-head"><span class="loja">${esc(nota.loja)}</span><span class="data">${esc(nota.data_compra)}</span></div>
             <div class="nota-items">
@@ -1330,8 +1286,9 @@
               <span class="nota-total">${brl(nota.total)}</span>
               <button class="btn-danger-text" onclick="app.deleteNota('${nota.id}')">remover</button>
             </div>
-          </div>`).join("")}
-      `;
+          </div>`).join("");
+      }
+      return html;
     }
 
     function renderProdutos() {
@@ -1343,7 +1300,6 @@
     function renderProdutosResultados() {
       const produtos = produtosAgrupados();
       let html = "";
-
       if (produtos.length > 1) {
         html += `<div class="merge-toolbar">`;
         if (!state.selectMode) {
@@ -1357,7 +1313,6 @@
         }
         html += `</div>`;
       }
-
       if (produtos.length === 0) {
         html += `<div class="empty-state"><span class="icon">📊</span><p>Assim que você cadastrar notas, os produtos repetidos aparecem aqui agrupados, com o histórico de preço de cada compra.</p></div>`;
       } else {
@@ -1395,151 +1350,6 @@
       return html;
     }
 
-
-    function renderEstoque() {
-      const paradosCount = state.estoque.filter((e) => e.status === "parado").length;
-      const valorTotal = state.estoque.reduce((s, e) => s + (Number(e.preco_unitario) || 0) * (Number(e.quantidade) || 0), 0);
-      let html = "";
-      if (valorTotal > 0) html += `<div class="summary-bar"><span class="label">valor total em estoque</span><span class="value">${brl(valorTotal)}</span></div>`;
-      html += `<div class="estoque-toolbar">
-        <span style="font-size:12px;color:#9A8A78">${state.estoque.length} item${state.estoque.length !== 1 ? "s" : ""} cadastrado${state.estoque.length !== 1 ? "s" : ""}</span>
-        ${paradosCount > 0 ? `<span class="alerta-parado">${paradosCount} parado${paradosCount > 1 ? "s" : ""} ⚠</span>` : ""}
-      </div>`;
-
-      if (state.showEstoqueForm) {
-        const f = state.estoqueForm;
-        const sugestao = sugestaoPrecoEstoque();
-        html += `
-          <div class="estoque-form">
-            <h4 class="form-title">${state.editandoEstoqueId ? "Editar item" : "Novo item de estoque"}</h4>
-            <div class="form-row">
-              <label>Foto</label>
-              <label class="photo-upload">
-                ${state.fotoStatus === "loading" ? `<div class="photo-loading"><div class="spinner"></div>processando foto...</div>` :
-                  f.fotoPreviewLocal ? `<img src="${f.fotoPreviewLocal}" />` : "toque para adicionar foto"}
-                <input type="file" accept="image/*" capture="environment" onchange="app.handleEstoqueFile(event)" style="display:none" />
-              </label>
-              ${state.fotoStatus === "error" ? `<div class="foto-erro">Não consegui carregar essa foto. Tenta tirar uma nova foto na hora (em vez de escolher da galeria) ou usar outra imagem.</div>` : ""}
-            </div>
-            <div class="form-row">
-              <label>Nome do produto</label>
-              <input type="text" value="${esc(f.nome)}" oninput="app.setEstoqueField('nome', this.value)" placeholder="ex: Caixa para trufa 12un" />
-              ${sugestao && !f.precoUnitario ? `<button type="button" class="sugestao-preco" onclick="app.usarSugestaoPreco(${sugestao.ultimoPreco})">já vi esse item por ${brl(sugestao.ultimoPreco)} numa nota — usar esse valor</button>` : ""}
-            </div>
-            <div class="form-row-split">
-              <div class="form-row">
-                <label>Categoria</label>
-                <select onchange="app.setEstoqueField('categoria', this.value)">
-                  ${CATEGORIAS.map((c) => `<option value="${c}" ${f.categoria === c ? "selected" : ""}>${c}</option>`).join("")}
-                </select>
-              </div>
-              <div class="form-row">
-                <label>Quantidade</label>
-                <input type="number" step="any" value="${f.quantidade}" oninput="app.setEstoqueField('quantidade', this.value)" />
-              </div>
-            </div>
-            <div class="form-row-split">
-              <div class="form-row">
-                <label>Preço pago (por unidade)</label>
-                <input type="number" step="any" value="${f.precoUnitario}" oninput="app.setEstoqueField('precoUnitario', this.value)" placeholder="0,00" />
-              </div>
-              <div class="form-row">
-                <label>Unidade</label>
-                <input type="text" value="${esc(f.unidade)}" oninput="app.setEstoqueField('unidade', this.value)" placeholder="un, kg, cx..." />
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Preço de venda (se for produto que você revende)</label>
-              <input type="number" step="any" value="${f.precoVenda}" oninput="app.setEstoqueField('precoVenda', this.value)" placeholder="0,00" />
-              ${f.precoUnitario > 0 && f.precoVenda > 0 ? `<div class="margem-preview">lucro: ${brl(f.precoVenda - f.precoUnitario)} por unidade · margem: ${(((f.precoVenda - f.precoUnitario) / f.precoVenda) * 100).toFixed(0)}%</div>` : ""}
-            </div>
-            <div class="form-row">
-              <label>Situação</label>
-              <div class="status-toggle">
-                <button type="button" class="${f.status === "girando" ? "active-girando" : ""}" onclick="app.setEstoqueField('status','girando')">Girando bem</button>
-                <button type="button" class="${f.status === "parado" ? "active-parado" : ""}" onclick="app.setEstoqueField('status','parado')">Parado</button>
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Observação (opcional)</label>
-              <textarea oninput="app.setEstoqueField('obs', this.value)">${esc(f.obs)}</textarea>
-            </div>
-            <div class="action-row">
-              <button class="btn btn-ghost" onclick="app.fecharFormularioEstoque()">Cancelar</button>
-              <button class="btn btn-primary" onclick="app.salvarEstoque()">${state.editandoEstoqueId ? "Salvar alterações" : "Salvar item"}</button>
-            </div>
-          </div>`;
-      }
-
-      if (state.estoque.length === 0 && !state.showEstoqueForm) {
-        html += `<div class="empty-state"><span class="icon">📦</span><p>Nenhum item de estoque cadastrado.<br>Toque no + para adicionar o primeiro.</p></div>`;
-      } else {
-        html += `<div class="estoque-grid">`;
-        for (const it of state.estoque) {
-          const fotoUrl = it.foto_url ? state.signedUrls[it.foto_url] : null;
-          html += `
-            <div class="estoque-card">
-              ${fotoUrl ? `<img src="${fotoUrl}" class="foto" />` : `<div class="foto-placeholder">📦</div>`}
-              <div class="estoque-card-body">
-                <div class="cat">${esc(it.categoria || "")}</div>
-                <div class="nome">${esc(it.nome)}</div>
-                <div class="qtd">${it.quantidade ?? "—"} ${esc(it.unidade || "")}</div>
-                ${it.preco_unitario > 0 ? `<div class="preco-pago">${brl(it.preco_unitario)} / ${esc(it.unidade || "")}${it.quantidade > 1 ? `<span class="preco-pago-total"> · total ${brl(it.preco_unitario * it.quantidade)}</span>` : ""}</div>` : ""}
-                ${it.preco_venda > 0 ? `<div class="preco-venda">vende por ${brl(it.preco_venda)}${it.preco_unitario > 0 ? `<span class="margem"> · ${(((it.preco_venda - it.preco_unitario) / it.preco_venda) * 100).toFixed(0)}% margem</span>` : ""}</div>` : ""}
-                <span class="badge-status ${it.status === "girando" ? "badge-girando" : "badge-parado"}" onclick="app.toggleEstoqueStatus('${it.id}')">${it.status === "girando" ? "girando bem" : "precisa girar"}</span>
-              </div>
-              <div class="estoque-card-foot">
-                <button class="btn-link-sm" onclick='app.abrirEdicaoEstoquePorId("${it.id}")'>editar</button>
-                <button class="btn-danger-text" onclick="app.deleteEstoque('${it.id}')">remover</button>
-              </div>
-            </div>`;
-        }
-        html += `</div>`;
-      }
-
-      if (!state.showEstoqueForm) html += `<button class="fab" onclick="app.abrirNovoEstoque()">+</button>`;
-      return html;
-    }
-
-    function renderMergeModal() {
-      return `
-        <div class="merge-modal-backdrop" onclick="app.fecharMergeModal()">
-          <div class="merge-modal" onclick="event.stopPropagation()">
-            <h4>Unir como qual nome?</h4>
-            <input type="text" value="${esc(state.mergeNomeInput)}" oninput="app.setMergeNomeInput(this.value)" />
-            <div class="action-row">
-              <button class="btn btn-ghost" onclick="app.fecharMergeModal()">Cancelar</button>
-              <button class="btn btn-primary" onclick="app.confirmarUniao()">Unir produtos</button>
-            </div>
-          </div>
-        </div>`;
-    }
-
-    function renderEnviarModal() {
-      return `
-        <div class="merge-modal-backdrop" onclick="app.fecharModalEnviar()">
-          <div class="merge-modal" onclick="event.stopPropagation()">
-            <h4>Enviar "${esc(state.enviarNomeAlvo)}"</h4>
-            <p class="enviar-preco-original">Preço cadastrado: ${brl(state.enviarPrecoOriginal)}</p>
-            <label class="enviar-label">Esse preço é de um pacote/caixa? Divide por quantas partes:</label>
-            <div class="divisor-quick">
-              <button type="button" class="${state.enviarDivisor === 1 ? "ativo" : ""}" onclick="app.setEnviarDivisor(1)">1 (preço inteiro)</button>
-              <button type="button" class="${state.enviarDivisor === 2 ? "ativo" : ""}" onclick="app.setEnviarDivisor(2)">2</button>
-              <button type="button" class="${state.enviarDivisor === 3 ? "ativo" : ""}" onclick="app.setEnviarDivisor(3)">3</button>
-              <button type="button" class="${state.enviarDivisor === 4 ? "ativo" : ""}" onclick="app.setEnviarDivisor(4)">4</button>
-            </div>
-            <input id="enviar-divisor-input" type="number" min="1" step="1" value="${state.enviarDivisor}" oninput="app.setEnviarDivisor(this.value)" placeholder="outro número..." />
-            <label class="enviar-label" style="margin-top:14px">Valor que será enviado (pode ajustar à mão):</label>
-            <input id="enviar-preco-input" type="number" step="any" value="${state.enviarPrecoFinal.toFixed(2)}" oninput="app.setEnviarPrecoManual(this.value)" />
-            <p class="enviar-nota-segura">Isso não altera nada nas suas notas cadastradas — só o valor enviado pra precificação.</p>
-            <div class="action-row">
-              <button class="btn btn-ghost" onclick="app.fecharModalEnviar()">Cancelar</button>
-              <button class="btn btn-primary" onclick="app.confirmarEnvio()">Enviar</button>
-            </div>
-          </div>
-        </div>`;
-    }
-
     // ---------- ponte pra ações do HTML (onclick etc) ----------
     window.app = {
       handleFile,
@@ -1554,6 +1364,8 @@
       setEnviarPrecoManual,
       confirmarEnvio,
       confirmSave,
+      confirmSaveForcar: () => confirmSave(true),
+      cancelarDuplicata: () => { state.confirmDuplicata = false; render(); },
       deleteNota,
       setProdutoQuery: (v) => {
         state.produtoQuery = v;
@@ -1569,16 +1381,6 @@
       setMergeNomeInput: (v) => { state.mergeNomeInput = v; },
       confirmarUniao,
       removerVariante,
-      handleEstoqueFile,
-      setEstoqueField: (field, value) => { state.estoqueForm[field] = value; if (["categoria", "status"].includes(field)) render(); },
-      usarSugestaoPreco: (preco) => { state.estoqueForm.precoUnitario = preco; render(); },
-      salvarEstoque,
-      abrirEdicaoEstoquePorId: (id) => { const item = state.estoque.find((e) => e.id === id); if (item) abrirEdicaoEstoque(item); },
-      fecharFormularioEstoque,
-      abrirNovoEstoque: () => { state.estoqueForm = emptyEstoqueForm(); state.editandoEstoqueId = null; state.showEstoqueForm = true; render(); },
-      deleteEstoque,
-      toggleEstoqueStatus,
-      exportarBackup,
       setTab: (t) => {
         state.tab = t;
         if (t === "nova") resetCapture();
@@ -1706,19 +1508,26 @@ document.querySelectorAll('.tab-btn').forEach(b=>{
    INSUMOS
    ============================================================ */
 let insumosCache = [];
+let insumosBuscaTermo = '';
 
-async function carregarInsumos(){
+function filtrarInsumos(termo) {
+  insumosBuscaTermo = (termo || '').toLowerCase().trim();
+  renderInsumosTabela();
+}
+
+function renderInsumosTabela() {
   const tbody = document.getElementById('insumos-tbody');
   const empty = document.getElementById('insumos-empty');
-  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:22px; color:var(--texto-suave);">Carregando...</td></tr>';
-  empty.style.display = 'none';
-  const {data, error} = await sb.from('insumos').select('*').order('nome');
-  if(error){ toast('Erro ao carregar insumos'); console.error(error); return; }
-  insumosCache = data || [];
+  if (!tbody) return;
+  const lista = insumosBuscaTermo
+    ? insumosCache.filter(i =>
+        i.nome.toLowerCase().includes(insumosBuscaTermo) ||
+        (i.codigo || '').toLowerCase().includes(insumosBuscaTermo))
+    : insumosCache;
   tbody.innerHTML = '';
-  if(!insumosCache.length){ empty.style.display='block'; return; }
-  empty.style.display='none';
-  insumosCache.forEach(ins=>{
+  if (!lista.length) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  lista.forEach(ins => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${ins.nome}</td>
@@ -1732,6 +1541,17 @@ async function carregarInsumos(){
   });
 }
 
+async function carregarInsumos(){
+  const tbody = document.getElementById('insumos-tbody');
+  const empty = document.getElementById('insumos-empty');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:22px; color:var(--texto-suave);">Carregando...</td></tr>';
+  if (empty) empty.style.display = 'none';
+  const {data, error} = await sb.from('insumos').select('*').order('nome');
+  if(error){ toast('Erro ao carregar insumos'); console.error(error); return; }
+  insumosCache = data || [];
+  renderInsumosTabela();
+}
+
 let editandoInsumoId = null;
 function editarInsumo(id){
   const ins = insumosCache.find(i=>i.id===id);
@@ -1739,6 +1559,7 @@ function editarInsumo(id){
   document.getElementById('ins-nome').value = ins.nome;
   document.getElementById('ins-preco').value = ins.preco;
   document.getElementById('ins-unidade').value = ins.unidade;
+  document.getElementById('ins-codigo').value = ins.codigo || '';
   editandoInsumoId = id;
   document.getElementById('ins-btn-salvar').textContent = '💾 Salvar Alteração';
   window.scrollTo(0,0);
@@ -1748,22 +1569,24 @@ async function salvarInsumo(){
   const nome = document.getElementById('ins-nome').value.trim();
   const preco = parseFloat(document.getElementById('ins-preco').value) || 0;
   const unidade = document.getElementById('ins-unidade').value.trim() || 'unidade';
+  const codigo = document.getElementById('ins-codigo').value.trim() || null;
   if(!nome){ toast('Dá um nome pro insumo'); return; }
 
   if(editandoInsumoId){
-    const {error} = await sb.from('insumos').update({nome, preco, unidade, updated_at:new Date().toISOString()}).eq('id', editandoInsumoId);
+    const {error} = await sb.from('insumos').update({nome, preco, unidade, codigo, updated_at:new Date().toISOString()}).eq('id', editandoInsumoId);
     if(error){ toast('Erro ao salvar'); console.error(error); return; }
     toast('Insumo atualizado!');
     editandoInsumoId = null;
     document.getElementById('ins-btn-salvar').textContent = '+ Adicionar Insumo';
   } else {
-    const {error} = await sb.from('insumos').insert({nome, preco, unidade});
+    const {error} = await sb.from('insumos').insert({nome, preco, unidade, codigo});
     if(error){ toast('Erro ao salvar'); console.error(error); return; }
     toast('Insumo adicionado!');
   }
   document.getElementById('ins-nome').value = '';
   document.getElementById('ins-preco').value = '';
   document.getElementById('ins-unidade').value = '';
+  document.getElementById('ins-codigo').value = '';
   carregarInsumos();
 }
 
@@ -2073,9 +1896,9 @@ async function carregarCustos(){
   }
   window._perdasMesCache = await getPerdasDoMes();
   document.getElementById('cf-perdas-mes').textContent = fmt(window._perdasMesCache);
-  document.getElementById('cf-qtd-vendida').value = data.quantidade_vendida_mes || '';
   atualizarTotalCustos();
   atualizarValorHora();
+  await renderVendasMensais();
   atualizarCustoMedioVenda();
 }
 
@@ -2097,24 +1920,72 @@ function atualizarTotalCustos(){
 }
 function atualizarCustoMedioVenda(){
   const ids = ['cf-aluguel','cf-energia','cf-agua','cf-internet','cf-funcionarios','cf-sistemas','cf-outros'];
-  const total = ids.reduce((s,id)=> s + (parseFloat(document.getElementById(id).value)||0), 0) + (window._perdasMesCache||0);
-  const qtd = parseFloat(document.getElementById('cf-qtd-vendida').value) || 0;
-  const custoMedio = qtd>0 ? total/qtd : 0;
-  document.getElementById('cf-custo-medio-venda').textContent = qtd>0 ? fmt(custoMedio) : '—';
+  const total = ids.reduce((s,id)=> s + (parseFloat(document.getElementById(id)?.value)||0), 0) + (window._perdasMesCache||0);
+  const anoMes = mesAtualKey();
+  const qtd = (window._vendasMensaisCache || {})[anoMes] || 0;
+  const el = document.getElementById('cf-custo-medio-venda');
+  if (el) el.textContent = qtd > 0 ? fmt(total/qtd) : '—';
 }
-function atualizarValorHora(){
-  const horas = parseFloat(document.getElementById('cf-horas').value)||0;
-  const dias = parseFloat(document.getElementById('cf-dias').value)||0;
-  const salario = parseFloat(document.getElementById('cf-salario').value)||0;
-  const valorHora = (horas*dias*4.33)>0 ? salario/(horas*dias*4.33) : 0;
-  document.getElementById('cf-valorhora').textContent = fmt(valorHora);
+function mesAtualKey(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+window._vendasMensaisCache = {};
+async function renderVendasMensais(){
+  const grid = document.getElementById('vendas-mensais-grid');
+  if (!grid) return;
+  // carregar do Supabase
+  const anoAtual = new Date().getFullYear();
+  const anos = [anoAtual, anoAtual + 1];
+  const chaves = [];
+  for (const ano of anos) for (let m=1; m<=12; m++) chaves.push(`${ano}-${String(m).padStart(2,'0')}`);
+  const {data} = await sb.from('vendas_mensais').select('*').in('mes_ano', chaves);
+  const mapa = {};
+  (data || []).forEach(r => { mapa[r.mes_ano] = r.quantidade; });
+  window._vendasMensaisCache = mapa;
+  const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const hoje = mesAtualKey();
+  let html = '';
+  for (const ano of anos) {
+    html += `<div style="grid-column:1/-1; font-size:11px; font-weight:700; color:var(--texto-suave); margin-top:8px; text-transform:uppercase; letter-spacing:.05em;">${ano}</div>`;
+    for (let m=1; m<=12; m++) {
+      const key = `${ano}-${String(m).padStart(2,'0')}`;
+      const val = mapa[key] || '';
+      const isAtual = key === hoje;
+      html += `<div class="field" style="${isAtual ? 'background:var(--creme-escuro);border-radius:8px;padding:4px 8px;' : ''}">
+        <label style="font-size:11px;">${MESES[m-1]}${isAtual?' ← atual':''}</label>
+        <input type="number" min="0" placeholder="0" value="${val}"
+          style="text-align:center;"
+          onchange="salvarVendaMensal('${key}', this.value)" />
+      </div>`;
+    }
+  }
+  grid.innerHTML = html;
+}
+async function salvarVendaMensal(mesAno, valor){
+  const qtd = parseInt(valor) || 0;
+  if (qtd > 0) {
+    await sb.from('vendas_mensais').upsert({mes_ano: mesAno, quantidade: qtd});
+    window._vendasMensaisCache[mesAno] = qtd;
+  } else {
+    await sb.from('vendas_mensais').delete().eq('mes_ano', mesAno);
+    delete window._vendasMensaisCache[mesAno];
+  }
+  atualizarCustoMedioVenda();
 }
 ['cf-aluguel','cf-energia','cf-agua','cf-internet','cf-funcionarios','cf-sistemas','cf-outros'].forEach(id=>{
-  document.getElementById(id).addEventListener('input', atualizarTotalCustos);
+  document.getElementById(id)?.addEventListener('input', atualizarTotalCustos);
 });
-document.getElementById('cf-qtd-vendida').addEventListener('input', atualizarCustoMedioVenda);
+function atualizarValorHora(){
+  const horas = parseFloat(document.getElementById('cf-horas')?.value)||0;
+  const dias = parseFloat(document.getElementById('cf-dias')?.value)||0;
+  const salario = parseFloat(document.getElementById('cf-salario')?.value)||0;
+  const valorHora = (horas*dias*4.33)>0 ? salario/(horas*dias*4.33) : 0;
+  const el = document.getElementById('cf-valorhora');
+  if (el) el.textContent = fmt(valorHora);
+}
 ['cf-horas','cf-dias','cf-salario'].forEach(id=>{
-  document.getElementById(id).addEventListener('input', atualizarValorHora);
+  document.getElementById(id)?.addEventListener('input', atualizarValorHora);
 });
 
 async function salvarCustos(){
@@ -2130,7 +2001,6 @@ async function salvarCustos(){
     funcionarios: parseFloat(document.getElementById('cf-funcionarios').value)||0,
     sistemas: parseFloat(document.getElementById('cf-sistemas').value)||0,
     outros: parseFloat(document.getElementById('cf-outros').value)||0,
-    quantidade_vendida_mes: parseFloat(document.getElementById('cf-qtd-vendida').value)||0,
     taxa_pix: parseFloat(document.getElementById('cf-taxa-pix').value)||0,
     taxa_debito: parseFloat(document.getElementById('cf-taxa-debito').value)||0,
     taxa_credito_parcelas: Array.from({length:12}, (_,i)=> parseFloat(document.getElementById('cf-parcela-'+(i+1)).value)||0),
@@ -2365,13 +2235,17 @@ function renderMateriais(){
     const div = document.createElement('div');
     div.className = 'mat-item';
     if(m.fixo){
-      const options = insumosCache.map(i=>`<option value="${i.id}" ${i.id===m.insumo_id?'selected':''}>${i.nome} (${fmt(i.preco)}/${i.unidade})</option>`).join('');
+      const nomeAtual = m.insumo_id ? (insumosCache.find(i=>i.id===m.insumo_id)?.nome || '') : '';
       div.innerHTML = `
-        <div class="field"><label>Insumo</label>
-          <select onchange="setInsumo(${idx}, this.value)"><option value="">Selecione...</option>${options}</select>
+        <div class="field" style="position:relative;"><label>Insumo</label>
+          <input id="ins-busca-mat-${idx}" placeholder="🔎 Digite nome ou código..." value="${nomeAtual}"
+            oninput="filtrarInsumoBusca(${idx}, this.value)"
+            onfocus="mostrarDropdownInsumo(${idx})"
+            autocomplete="off" style="width:100%;" />
+          <div id="ins-dropdown-${idx}" style="display:none; position:absolute; z-index:50; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:200px; overflow-y:auto; width:100%; box-shadow:0 4px 12px rgba(0,0,0,0.1); top:calc(100% + 2px); left:0;"></div>
         </div>
         <div class="field"><label>Qtd usada</label><input type="number" min="0" step="0.01" value="${m.quantidade||''}" onchange="setQtd(${idx}, this.value)" /></div>
-        <div class="field"><label>Custo</label><input value="${fmt(m.valor_unitario*m.quantidade)}" disabled /></div>
+        <div class="field"><label>Custo</label><input value="${fmt(m.valor_unitario*(m.quantidade||1))}" disabled /></div>
         <button class="mat-remove" onclick="removeMaterial(${idx})">✕</button>`;
     } else {
       div.innerHTML = `
@@ -2387,9 +2261,56 @@ function renderMateriais(){
   salvarRascunho();
 }
 
+function filtrarInsumoBusca(idx, termo) {
+  const dropdown = document.getElementById(`ins-dropdown-${idx}`);
+  if (!dropdown) return;
+  const t = (termo || '').toLowerCase().trim();
+  const lista = t
+    ? insumosCache.filter(i => i.nome.toLowerCase().includes(t) || (i.codigo || '').toLowerCase().includes(t))
+    : insumosCache.slice(0, 30);
+  mostrarDropdownInsumoLista(idx, lista);
+}
+
+function mostrarDropdownInsumo(idx) {
+  const termo = (document.getElementById(`ins-busca-mat-${idx}`)?.value || '').toLowerCase().trim();
+  const lista = termo
+    ? insumosCache.filter(i => i.nome.toLowerCase().includes(termo) || (i.codigo || '').toLowerCase().includes(termo))
+    : insumosCache.slice(0, 30);
+  mostrarDropdownInsumoLista(idx, lista);
+}
+
+function mostrarDropdownInsumoLista(idx, lista) {
+  const dropdown = document.getElementById(`ins-dropdown-${idx}`);
+  if (!dropdown) return;
+  if (!lista.length) { dropdown.style.display = 'none'; return; }
+  dropdown.style.display = 'block';
+  dropdown.innerHTML = lista.map(i =>
+    `<div onclick="selecionarInsumoMat(${idx}, '${i.id}')"
+      style="padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--line); font-size:13px;"
+      onmouseover="this.style.background='#FBF6EE'" onmouseout="this.style.background=''">${i.nome} <span style="color:var(--caramel)">${fmt(i.preco)}/${i.unidade}</span></div>`
+  ).join('');
+  // fechar ao clicar fora
+  setTimeout(() => {
+    document.addEventListener('click', function fechar(e) {
+      if (!dropdown.contains(e.target) && e.target.id !== `ins-busca-mat-${idx}`) {
+        dropdown.style.display = 'none';
+        document.removeEventListener('click', fechar);
+      }
+    });
+  }, 100);
+}
+
+function selecionarInsumoMat(idx, insumoId) {
+  const dropdown = document.getElementById(`ins-dropdown-${idx}`);
+  if (dropdown) dropdown.style.display = 'none';
+  const input = document.getElementById(`ins-busca-mat-${idx}`);
+  setInsumo(idx, insumoId);
+  const ins = insumosCache.find(i => i.id === insumoId);
+  if (ins && input) input.value = ins.nome;
+}
+
 function addMaterial(fixo){
   if(fixo && !insumosCache.length){
-    toast('Cadastre um insumo primeiro na aba Insumos');
     return;
   }
   materiais.push({insumo_id:null, nome:'', quantidade:1, unidade:'', valor_unitario:0, fixo});
