@@ -1758,6 +1758,15 @@ function custoPorUso(emb){
   const r = Number(emb.rendimento) || 1;
   return (Number(emb.preco) || 0) / (r > 0 ? r : 1);
 }
+// Os dois números lado a lado: o unitário (que entra na conta)
+// e o que foi pago no pacote inteiro (referência pra conferir na mão).
+function doisPrecos(emb, uu){
+  if(!emb) return '';
+  return `<strong style="color:var(--marrom)">${fmt(custoPorUso(emb))}</strong> por ${uu || 'uso'}`
+       + ` <span style="color:var(--texto-suave)">· ${emb.nome} — ${fmt(emb.preco)}`
+       + (Number(emb.rendimento) !== 1 ? ` (${emb.rendimento} un.)` : '') + `</span>`;
+}
+
 function embalagensDe(insumoId){
   return embalagensCache.filter(e => String(e.insumo_id) === String(insumoId));
 }
@@ -1794,10 +1803,7 @@ function renderInsumosTabela() {
     const uu = unidadeUsoDe(ins.id);
     const faltaUnidade = !uu;
     const resumo = embs.length
-      ? embs.map(e => `<div style="font-size:12px; color:var(--texto-suave); padding:1px 0;">
-            ${e.nome} · ${fmt(e.preco)} ÷ ${e.rendimento} =
-            <strong style="color:var(--marrom)">${fmt(custoPorUso(e))}</strong>${uu ? ' / ' + uu : ''}
-          </div>`).join('')
+      ? embs.map(e => `<div style="font-size:12px; padding:1px 0;">${doisPrecos(e, uu)}</div>`).join('')
       : `<div style="font-size:12px; color:var(--vermelho);">sem embalagem cadastrada</div>`;
     tr.innerHTML = `
       <td>
@@ -1919,8 +1925,7 @@ function renderEmbalagens(insumoId){
       </div>
       <button class="mat-remove" onclick="excluirEmbalagem('${e.id}','${insumoId}')">✕</button>
       <div style="grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; gap:8px;">
-        <span class="hint" style="margin:0;">${fmt(e.preco)} ÷ ${e.rendimento} =
-          <strong style="color:var(--marrom)">${fmt(custoPorUso(e))}</strong>${uu ? ' por ' + uu : ' por uso'}</span>
+        <span class="hint" style="margin:0;">${doisPrecos(e, uu)}</span>
         <span class="hint" style="margin:0;">${e.padrao ? '<strong>padrão</strong>' :
           `<button class="btn-link" onclick="tornarPadrao('${e.id}','${insumoId}')">usar como padrão</button>`}</span>
       </div>
@@ -2698,7 +2703,7 @@ function mostrarDropdownInsumoLista(idx, lista) {
       style="padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--line); font-size:13px;"
       onmouseover="this.style.background='#FBF6EE'" onmouseout="this.style.background=''">${i.nome} <span style="color:var(--caramel)">${(() => {
         const e = embalagemPadrao(i.id);
-        return e ? fmt(custoPorUso(e)) + '/' + (i.unidade_uso || 'uso') : 'sem embalagem';
+        return e ? fmt(custoPorUso(e)) + '/' + (i.unidade_uso || 'uso') + ' · pacote ' + fmt(e.preco) : 'sem embalagem';
       })()}</span></div>`
   ).join('');
   // fechar ao clicar fora
@@ -2734,11 +2739,16 @@ function linhaEmbalagem(idx, m){
   }
 
   const atual = embs.find(e => String(e.id) === String(m.embalagem_id)) || embs[0];
-  const conta = `${fmt(atual.preco)} ÷ ${atual.rendimento} = <strong style="color:var(--marrom)">${fmt(custoPorUso(atual))}</strong> por ${uu}`;
+  const unit = custoPorUso(atual);
+  const qtd = Number(m.quantidade) || 0;
+  const linhaTotal = qtd
+    ? `<div style="font-size:12px; color:var(--texto-suave); margin-top:2px;">
+         ${qtd} × ${fmt(unit)} = <strong style="color:var(--marrom)">${fmt(qtd * unit)}</strong></div>`
+    : '';
 
   if(embs.length === 1){
-    return `<div style="grid-column:1/-1; font-size:12px; color:var(--texto-suave); margin-top:4px;">
-      ${atual.nome} · ${conta}</div>`;
+    return `<div style="grid-column:1/-1; font-size:12px; margin-top:4px;">
+      ${doisPrecos(atual, uu)}${linhaTotal}</div>`;
   }
 
   return `<div style="grid-column:1/-1; margin-top:6px;">
@@ -2747,9 +2757,9 @@ function linhaEmbalagem(idx, m){
     <select onchange="setEmbalagem(${idx}, this.value)" style="width:100%; padding:8px 10px;
       border:1.5px solid var(--creme-escuro); border-radius:8px; background:var(--creme); font-size:13.5px;">
       ${embs.map(e => `<option value="${e.id}" ${String(e.id)===String(atual.id)?'selected':''}>
-          ${e.nome} — ${fmt(custoPorUso(e))} por ${uu}</option>`).join('')}
+          ${e.nome} — ${fmt(custoPorUso(e))}/${uu} · pacote ${fmt(e.preco)}</option>`).join('')}
     </select>
-    <div style="font-size:12px; color:var(--texto-suave); margin-top:4px;">${conta}</div>
+    <div style="font-size:12px; margin-top:4px;">${doisPrecos(atual, uu)}${linhaTotal}</div>
   </div>`;
 }
 
