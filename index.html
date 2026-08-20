@@ -740,6 +740,8 @@
       enviarPrecoFinal: 0,
       fotoStatus: "idle",
       confirmDuplicata: false,
+      notaDuplicada: null,
+      duplicataMotivo: "",
       editandoDataNota: null,
       manualItens: [],
     };
@@ -831,7 +833,9 @@
         if (!itensPorNota[it.nota_id]) itensPorNota[it.nota_id] = [];
         itensPorNota[it.nota_id].push(it);
       }
-      state.notas = notasData.map((n) => ({ ...n, items: itensPorNota[n.id] || [] }));
+      state.notas = notasData
+        .map((n) => ({ ...n, items: itensPorNota[n.id] || [] }))
+        .sort((a, b) => ordemDaNota(b) - ordemDaNota(a));
       state.aliases = {};
       for (const a of aliasesData) state.aliases[a.variant_key] = a.nome_canonico;
       render();
@@ -924,26 +928,64 @@
       }
     }
 
+    // Impressão digital da nota: centavos + quantidade de itens + nomes normalizados.
+    function impressaoNota(nomes, total) {
+      const lista = nomes.map((n) => normalize(n)).filter(Boolean).sort().join("|");
+      return Math.round((Number(total) || 0) * 100) + "::" + nomes.length + "::" + lista;
+    }
+
+    // Procura uma nota já lançada com o mesmo conteúdo.
+    // Nível 1: conteúdo idêntico. Nível 2: mesmo total e mesma quantidade de itens.
+    function notaIgual(itensNovos, total) {
+      const nomesNovos = itensNovos.map((i) => i.nome);
+      const digital = impressaoNota(nomesNovos, total);
+      const centavos = Math.round((Number(total) || 0) * 100);
+
+      for (const nota of state.notas) {
+        const itens = nota.items || [];
+        if (impressaoNota(itens.map((i) => i.nome), nota.total) === digital) {
+          return { nota, motivo: "mesmos itens e o mesmo total" };
+        }
+      }
+      for (const nota of state.notas) {
+        const itens = nota.items || [];
+        if (Math.round((Number(nota.total) || 0) * 100) === centavos && itens.length === itensNovos.length) {
+          return { nota, motivo: "o mesmo total e a mesma quantidade de itens" };
+        }
+      }
+      return null;
+    }
+
     async function confirmSave(forcar) {
       const selected = state.items.filter((it) => it.incluir && it.nome.trim());
       if (selected.length === 0) return;
       const lojaAtual = state.loja || "Mercado";
       const dataAtual = state.dataCompra || todayLabel();
 
-      // Pedido #9 — verificar duplicidade por loja + data
+      const total = selected.reduce((s, it) => s + (Number(it.precoTotal) || 0), 0);
+
+      // Duplicidade pelo conteúdo da nota, não pelo cabeçalho.
+      // Loja e data vêm do OCR e mudam de leitura pra leitura; o total é
+      // calculado por conta e os nomes dos itens são normalizados.
       if (!forcar) {
-        const { data: dupes } = await sb.from("notas").select("id").eq("loja", lojaAtual).eq("data_compra", dataAtual).limit(1);
-        if (dupes && dupes.length > 0) {
+        const achada = notaIgual(selected, total);
+        if (achada) {
+          state.notaDuplicada = achada.nota;
+          state.duplicataMotivo = achada.motivo;
           state.confirmDuplicata = true;
           render();
           return;
         }
       }
       state.confirmDuplicata = false;
+      state.notaDuplicada = null;
+      state.duplicataMotivo = "";
 
       const notaId = `nota-${Date.now()}`;
-      const total = selected.reduce((s, it) => s + (Number(it.precoTotal) || 0), 0);
-      const { error: e1 } = await sb.from("notas").insert({ id: notaId, loja: lojaAtual, data_compra: dataAtual, total });
+      const { error: e1 } = await sb.from("notas").insert({
+        id: notaId, loja: lojaAtual, data_compra: dataAtual,
+        data_iso: dataParaISO(dataAtual), total
+      });
       if (e1) { console.error(e1); toast("Erro ao salvar a nota"); return; }
       const itensParaInserir = selected.map((it) => ({ nota_id: notaId, codigo: it.codigo, nome: it.nome, quantidade: it.quantidade, preco_unitario: it.precoUnitario, preco_total: it.precoTotal }));
       const { error: e2 } = await sb.from("itens_nota").insert(itensParaInserir);
@@ -963,6 +1005,8 @@
       state.dataCompra = "";
       state.errorMsg = "";
       state.confirmDuplicata = false;
+      state.notaDuplicada = null;
+      state.duplicataMotivo = "";
     }
 
     async function deleteNota(id) {
@@ -975,6 +1019,48 @@
     function timestampFromNotaId(id) {
       const n = Number((id || "").replace("nota-", ""));
       return isNaN(n) ? 0 : n;
+    }
+
+    // O OCR devolve a data em formatos variados. Converte para AAAA-MM-DD
+    // para dar pra ordenar de verdade. Devolve null quando não reconhece.
+    const MESES_ABREV = { jan:1, fev:2, mar:3, abr:4, mai:5, jun:6, jul:7, ago:8, set:9, out:10, nov:11, dez:12 };
+
+    function dataParaISO(txt) {
+      if (!txt) return null;
+      const t = String(txt).trim().toLowerCase();
+
+      let m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (m) return montarISO(+m[1], +m[2], +m[3]);
+
+      m = t.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+      if (m) {
+        let ano = +m[3];
+        if (ano < 100) ano += 2000;
+        return montarISO(ano, +m[2], +m[1]);
+      }
+
+      m = t.match(/(\d{1,2})\s*(?:de\s+)?([a-zç]{3,})\.?\s*(?:de\s+)?(\d{4})/);
+      if (m) {
+        const mes = MESES_ABREV[m[2].slice(0, 3)];
+        if (mes) return montarISO(+m[3], mes, +m[1]);
+      }
+      return null;
+    }
+
+    function montarISO(ano, mes, dia) {
+      if (!ano || !mes || !dia || mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+      const p = (n) => String(n).padStart(2, "0");
+      return ano + "-" + p(mes) + "-" + p(dia);
+    }
+
+    // Data da compra quando dá pra saber; senão, a hora em que foi lançada.
+    function ordemDaNota(nota) {
+      const iso = nota.data_iso || dataParaISO(nota.data_compra);
+      if (iso) {
+        const p = iso.split("-");
+        return new Date(+p[0], +p[1] - 1, +p[2]).getTime();
+      }
+      return timestampFromNotaId(nota.id);
     }
 
     function produtosAgrupados() {
@@ -1256,7 +1342,9 @@
               <div class="receipt-inner">
                 <div class="receipt-meta">
                   <input value="${esc(state.loja)}" oninput="app.setLoja(this.value)" placeholder="Nome do mercado" />
-                  <span class="date">${esc(state.dataCompra)}</span>
+                  <input type="date" value="${dataParaISO(state.dataCompra) || ""}" oninput="app.setDataOCR(this.value)"
+                    title="Data da compra"
+                    style="font-size:11px; border:none; background:transparent; color:#9A8A78; font-family:'Space Mono',monospace; width:130px;" />
                 </div>
                 ${state.items.map((it) => `
                   <div class="item-row ${it.incluir ? "" : "excluded"}">
@@ -1281,7 +1369,13 @@
             </div>
             <div class="scissors-note">✂ confira os itens antes de salvar</div>
             ${state.confirmDuplicata ? `
-            <div class="error-box" style="margin-top:12px;">⚠️ Já existe uma nota desta loja nesta data. É uma nota diferente mesmo?</div>
+            <div class="error-box" style="margin-top:12px;">
+              ⚠️ <strong>Essa nota parece já ter sido lançada.</strong><br />
+              ${state.notaDuplicada ? `Encontrei <strong>${esc(state.notaDuplicada.loja || "sem loja")}</strong>,
+              de ${esc(mostrarData(state.notaDuplicada.data_compra))}, com ${brl(state.notaDuplicada.total)}
+              — ${esc(state.duplicataMotivo)}.` : ""}
+              <br /><br />Se for uma compra diferente mesmo, pode lançar.
+            </div>
             <div class="action-row">
               <button class="btn btn-ghost" onclick="app.cancelarDuplicata()">Cancelar</button>
               <button class="btn btn-primary" onclick="app.confirmSaveForcar()">Lançar mesmo assim</button>
@@ -1301,13 +1395,8 @@
       }
       const porMes = {};
       for (const nota of state.notas) {
-        const raw = nota.data_compra || "";
-        let mesKey = "Sem data";
-        const m1 = raw.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-        const m2 = raw.match(/(\d{4})-(\d{2})-(\d{2})/);
-        if (m1) mesKey = `${m1[2]}/${m1[3]}`;
-        else if (m2) mesKey = `${m2[2]}/${m2[1]}`;
-        else { const partes = raw.split(/[\s\/\-]/); if (partes.length >= 3) mesKey = raw.slice(-7); }
+        const isoMes = dataParaISO(nota.data_iso || nota.data_compra);
+        const mesKey = isoMes ? isoMes.slice(5, 7) + "/" + isoMes.slice(0, 4) : "Sem data";
         if (!porMes[mesKey]) porMes[mesKey] = { total: 0, notas: [] };
         porMes[mesKey].total += Number(nota.total) || 0;
         porMes[mesKey].notas.push(nota);
@@ -1335,7 +1424,7 @@
                   <button class="btn-link strong" onclick="app.salvarDataNota('${nota.id}')">✓</button>
                   <button class="btn-link" onclick="app.cancelarEditData()">✕</button>
                 ` : `
-                  <span class="data">${esc(nota.data_compra)}</span>
+                  <span class="data">${esc(mostrarData(nota.data_compra))}</span>
                   <button class="btn-link" onclick="app.editarDataNota('${nota.id}')" title="Editar data" style="font-size:14px;">✏️</button>
                 `}
               </span>
@@ -1353,14 +1442,15 @@
     }
 
     function notaDataParaInput(dataStr) {
-      if (!dataStr) return "";
-      // tenta converter "28/07/2026" → "2026-07-28"
-      const m = dataStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-      if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-      // já está em formato ISO
-      const m2 = dataStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-      if (m2) return dataStr.slice(0, 10);
-      return "";
+      return dataParaISO(dataStr) || "";
+    }
+
+    // Mostra qualquer formato guardado como dd/mm/aaaa.
+    function mostrarData(txt) {
+      const iso = dataParaISO(txt);
+      if (!iso) return txt || "sem data";
+      const p = iso.split("-");
+      return p[2] + "/" + p[1] + "/" + p[0];
     }
 
     function renderProdutos() {
@@ -1443,6 +1533,11 @@
         render();
       },
       setDataManual: (v) => { state.dataCompra = v; },
+      setDataOCR: (v) => {
+        if (!v) { state.dataCompra = ""; return; }
+        const [ano, mes, dia] = v.split("-");
+        state.dataCompra = `${dia}/${mes}/${ano}`;
+      },
       addManualItem: () => { state.manualItens.push({ nome: "", quantidade: 1, precoUnitario: 0 }); render(); },
       removeManualItem: (idx) => { state.manualItens.splice(idx, 1); render(); },
       setManualItem: (idx, field, value) => {
@@ -1472,7 +1567,7 @@
       },
       confirmSave,
       confirmSaveForcar: () => confirmSave(true),
-      cancelarDuplicata: () => { state.confirmDuplicata = false; render(); },
+      cancelarDuplicata: () => { state.confirmDuplicata = false; state.notaDuplicada = null; state.duplicataMotivo = ""; render(); },
       deleteNota,
       editarDataNota: (id) => { state.editandoDataNota = id; render(); },
       cancelarEditData: () => { state.editandoDataNota = null; render(); },
@@ -1483,7 +1578,9 @@
         if (!val) return;
         const [ano, mes, dia] = val.split("-");
         const novaData = `${dia}/${mes}/${ano}`;
-        const { error } = await sb.from("notas").update({ data_compra: novaData }).eq("id", id);
+        const { error } = await sb.from("notas")
+          .update({ data_compra: novaData, data_iso: val })
+          .eq("id", id);
         if (error) { toast("Erro ao salvar data"); console.error(error); return; }
         state.editandoDataNota = null;
         toast("Data atualizada!");
