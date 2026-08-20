@@ -560,19 +560,41 @@
           <input id="ins-nome" placeholder="Ex: Ferrero Rocher" />
         </div>
         <div class="field">
-          <label>Preço (R$)</label>
-          <input id="ins-preco" type="number" min="0" step="0.01" placeholder="Ex: 1.80" />
-        </div>
-        <div class="field">
-          <label>Unidade</label>
-          <input id="ins-unidade" placeholder="Ex: unidade" />
+          <label>O que você gasta na receita</label>
+          <input id="ins-unidade-uso" placeholder="Ex: bombom" />
         </div>
       </div>
+      <p class="hint" style="margin-top:-6px;">É isso que a quantidade da receita vai contar. Bombom, bloco,
+        metro, grama. O preço não fica aqui — fica em cada embalagem, logo abaixo.</p>
       <div class="field">
         <label>Código da nota fiscal (opcional)</label>
         <input id="ins-codigo" placeholder="Ex: 7896931614341" />
       </div>
+      <input type="hidden" id="ins-preco" value="0" />
+      <input type="hidden" id="ins-unidade" value="" />
       <button class="btn btn-primary" id="ins-btn-salvar" onclick="salvarInsumo()">+ Adicionar Insumo</button>
+
+      <div id="emb-editor" style="display:none; margin-top:16px; border-top:1px dashed var(--creme-escuro); padding-top:14px;">
+        <h2 style="font-size:15px;">📦 Embalagens de <span id="emb-insumo-nome"></span></h2>
+        <p class="sub">Cada jeito de comprar, com o preço daquela compra e quantas unidades ela rende.</p>
+        <div id="emb-lista"></div>
+        <div class="row" style="align-items:flex-end;">
+          <div class="field" style="flex:2;">
+            <label>Embalagem</label>
+            <input id="emb-nome" placeholder="Ex: caixa com 12" />
+          </div>
+          <div class="field">
+            <label>Preço pago (R$)</label>
+            <input id="emb-preco" type="number" min="0" step="0.01" placeholder="Ex: 48.00" oninput="previaEmbalagem()" />
+          </div>
+          <div class="field">
+            <label>Rende quantos</label>
+            <input id="emb-rendimento" type="number" min="0.0001" step="any" placeholder="Ex: 12" oninput="previaEmbalagem()" />
+          </div>
+        </div>
+        <div id="emb-previa" class="hint" style="margin-bottom:8px;"></div>
+        <button class="btn btn-ghost btn-sm" onclick="salvarEmbalagem()">+ Adicionar embalagem</button>
+      </div>
     </div>
     <div class="card">
       <div class="row" style="justify-content:space-between; align-items:center;">
@@ -1727,6 +1749,26 @@ document.querySelectorAll('.tab-btn').forEach(b=>{
    INSUMOS
    ============================================================ */
 let insumosCache = [];
+let embalagensCache = [];
+
+// Custo de UMA unidade de uso desta embalagem.
+// Caixa de 12 por R$ 48 -> R$ 4,00 por bombom.
+function custoPorUso(emb){
+  if(!emb) return 0;
+  const r = Number(emb.rendimento) || 1;
+  return (Number(emb.preco) || 0) / (r > 0 ? r : 1);
+}
+function embalagensDe(insumoId){
+  return embalagensCache.filter(e => String(e.insumo_id) === String(insumoId));
+}
+function embalagemPadrao(insumoId){
+  const lista = embalagensDe(insumoId);
+  return lista.find(e => e.padrao) || lista[0] || null;
+}
+function unidadeUsoDe(insumoId){
+  const ins = insumosCache.find(i => String(i.id) === String(insumoId));
+  return (ins && ins.unidade_uso && ins.unidade_uso.trim()) || '';
+}
 let insumosBuscaTermo = '';
 
 function filtrarInsumos(termo) {
@@ -1748,10 +1790,23 @@ function renderInsumosTabela() {
   empty.style.display = 'none';
   lista.forEach(ins => {
     const tr = document.createElement('tr');
+    const embs = embalagensDe(ins.id);
+    const uu = unidadeUsoDe(ins.id);
+    const faltaUnidade = !uu;
+    const resumo = embs.length
+      ? embs.map(e => `<div style="font-size:12px; color:var(--texto-suave); padding:1px 0;">
+            ${e.nome} · ${fmt(e.preco)} ÷ ${e.rendimento} =
+            <strong style="color:var(--marrom)">${fmt(custoPorUso(e))}</strong>${uu ? ' / ' + uu : ''}
+          </div>`).join('')
+      : `<div style="font-size:12px; color:var(--vermelho);">sem embalagem cadastrada</div>`;
     tr.innerHTML = `
-      <td>${ins.nome}</td>
-      <td>${fmt(ins.preco)}</td>
-      <td>${ins.unidade}</td>
+      <td>
+        <div>${ins.nome}</div>
+        ${faltaUnidade
+          ? `<div style="font-size:11px; color:var(--vermelho);">falta dizer o que você gasta (bombom, bloco, metro…)</div>`
+          : `<div style="font-size:11px; color:var(--texto-suave);">gasta em: ${uu}</div>`}
+      </td>
+      <td colspan="2">${resumo}</td>
       <td style="text-align:right; white-space:nowrap;">
         <button class="btn btn-ghost btn-sm" onclick="editarInsumo('${ins.id}')">Editar</button>
         <button class="btn btn-danger btn-sm" onclick="excluirInsumo('${ins.id}')">Excluir</button>
@@ -1765,9 +1820,14 @@ async function carregarInsumos(){
   const empty = document.getElementById('insumos-empty');
   if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:22px; color:var(--texto-suave);">Carregando...</td></tr>';
   if (empty) empty.style.display = 'none';
-  const {data, error} = await sb.from('insumos').select('*').order('nome');
-  if(error){ toast('Erro ao carregar insumos'); console.error(error); return; }
-  insumosCache = data || [];
+  const [rIns, rEmb] = await Promise.all([
+    sb.from('insumos').select('*').order('nome'),
+    sb.from('insumo_embalagens').select('*').order('nome')
+  ]);
+  if(rIns.error){ toast('Erro ao carregar insumos'); console.error(rIns.error); return; }
+  if(rEmb.error){ toast('Erro ao carregar embalagens'); console.error(rEmb.error); }
+  insumosCache = rIns.data || [];
+  embalagensCache = rEmb.data || [];
   renderInsumosTabela();
 }
 
@@ -1776,37 +1836,129 @@ function editarInsumo(id){
   const ins = insumosCache.find(i=>i.id===id);
   if(!ins) return;
   document.getElementById('ins-nome').value = ins.nome;
-  document.getElementById('ins-preco').value = ins.preco;
-  document.getElementById('ins-unidade').value = ins.unidade;
+  document.getElementById('ins-unidade-uso').value = ins.unidade_uso || '';
   document.getElementById('ins-codigo').value = ins.codigo || '';
   editandoInsumoId = id;
   document.getElementById('ins-btn-salvar').textContent = '💾 Salvar Alteração';
+  abrirEmbalagens(id);
   window.scrollTo(0,0);
 }
 
 async function salvarInsumo(){
   const nome = document.getElementById('ins-nome').value.trim();
-  const preco = parseFloat(document.getElementById('ins-preco').value) || 0;
-  const unidade = document.getElementById('ins-unidade').value.trim() || 'unidade';
+  const unidadeUso = document.getElementById('ins-unidade-uso').value.trim() || null;
   const codigo = document.getElementById('ins-codigo').value.trim() || null;
   if(!nome){ toast('Dá um nome pro insumo'); return; }
 
   if(editandoInsumoId){
-    const {error} = await sb.from('insumos').update({nome, preco, unidade, codigo, updated_at:new Date().toISOString()}).eq('id', editandoInsumoId);
+    const {error} = await sb.from('insumos')
+      .update({nome, unidade_uso: unidadeUso, codigo, updated_at:new Date().toISOString()})
+      .eq('id', editandoInsumoId);
     if(error){ toast('Erro ao salvar'); console.error(error); return; }
     toast('Insumo atualizado!');
-    editandoInsumoId = null;
-    document.getElementById('ins-btn-salvar').textContent = '+ Adicionar Insumo';
-  } else {
-    const {error} = await sb.from('insumos').insert({nome, preco, unidade, codigo});
-    if(error){ toast('Erro ao salvar'); console.error(error); return; }
-    toast('Insumo adicionado!');
+    await carregarInsumos();
+    abrirEmbalagens(editandoInsumoId);
+    return;
   }
+
+  const {data, error} = await sb.from('insumos')
+    .insert({nome, preco:0, unidade: unidadeUso || 'unidade', unidade_uso: unidadeUso, codigo})
+    .select().single();
+  if(error){ toast('Erro ao salvar'); console.error(error); return; }
+  toast('Insumo criado. Agora cadastre as embalagens.');
+  await carregarInsumos();
+  editandoInsumoId = data.id;
+  document.getElementById('ins-btn-salvar').textContent = '💾 Salvar Alteração';
+  abrirEmbalagens(data.id);
+}
+
+function limparFormInsumo(){
+  editandoInsumoId = null;
   document.getElementById('ins-nome').value = '';
-  document.getElementById('ins-preco').value = '';
-  document.getElementById('ins-unidade').value = '';
+  document.getElementById('ins-unidade-uso').value = '';
   document.getElementById('ins-codigo').value = '';
-  carregarInsumos();
+  document.getElementById('ins-btn-salvar').textContent = '+ Adicionar Insumo';
+  document.getElementById('emb-editor').style.display = 'none';
+}
+
+// ---- embalagens ----
+function abrirEmbalagens(insumoId){
+  const ins = insumosCache.find(i => String(i.id) === String(insumoId));
+  if(!ins) return;
+  document.getElementById('emb-editor').style.display = 'block';
+  document.getElementById('emb-insumo-nome').textContent = ins.nome;
+  renderEmbalagens(insumoId);
+}
+
+function renderEmbalagens(insumoId){
+  const wrap = document.getElementById('emb-lista');
+  if(!wrap) return;
+  const uu = unidadeUsoDe(insumoId);
+  const lista = embalagensDe(insumoId);
+  if(!lista.length){
+    wrap.innerHTML = `<p class="hint" style="color:var(--vermelho);">Nenhuma embalagem ainda.
+      Sem pelo menos uma, este insumo não pode entrar numa receita.</p>`;
+    return;
+  }
+  wrap.innerHTML = lista.map(e => `
+    <div class="mat-item" style="grid-template-columns:2fr 1fr auto;">
+      <div>
+        <strong style="font-size:13.5px;">${e.nome}</strong>
+        <div class="hint" style="margin:2px 0 0;">${fmt(e.preco)} ÷ ${e.rendimento} =
+          <strong style="color:var(--marrom)">${fmt(custoPorUso(e))}</strong>${uu ? ' por ' + uu : ' por uso'}</div>
+      </div>
+      <div class="hint" style="text-align:right;">${e.padrao ? 'padrão' :
+        `<button class="btn-link" onclick="tornarPadrao('${e.id}','${insumoId}')">usar como padrão</button>`}</div>
+      <button class="mat-remove" onclick="excluirEmbalagem('${e.id}','${insumoId}')">✕</button>
+    </div>`).join('');
+}
+
+async function salvarEmbalagem(){
+  if(!editandoInsumoId){ toast('Salve o insumo primeiro'); return; }
+  const nome = document.getElementById('emb-nome').value.trim();
+  const preco = parseFloat(document.getElementById('emb-preco').value) || 0;
+  const rendimento = parseFloat(document.getElementById('emb-rendimento').value) || 0;
+  if(!nome){ toast('Dá um nome pra embalagem'); return; }
+  if(rendimento <= 0){ toast('O rendimento tem que ser maior que zero'); return; }
+
+  const primeira = embalagensDe(editandoInsumoId).length === 0;
+  const {error} = await sb.from('insumo_embalagens')
+    .insert({insumo_id: editandoInsumoId, nome, preco, rendimento, padrao: primeira});
+  if(error){ toast('Erro ao salvar embalagem'); console.error(error); return; }
+  document.getElementById('emb-nome').value = '';
+  document.getElementById('emb-preco').value = '';
+  document.getElementById('emb-rendimento').value = '';
+  document.getElementById('emb-previa').textContent = '';
+  await carregarInsumos();
+  renderEmbalagens(editandoInsumoId);
+  toast('Embalagem adicionada');
+}
+
+async function excluirEmbalagem(id, insumoId){
+  if(!confirm('Excluir esta embalagem? Produtos já salvos mantêm o custo que foi gravado.')) return;
+  const {error} = await sb.from('insumo_embalagens').delete().eq('id', id);
+  if(error){ toast('Erro ao excluir'); return; }
+  await carregarInsumos();
+  renderEmbalagens(insumoId);
+}
+
+async function tornarPadrao(id, insumoId){
+  await sb.from('insumo_embalagens').update({padrao:false}).eq('insumo_id', insumoId);
+  const {error} = await sb.from('insumo_embalagens').update({padrao:true}).eq('id', id);
+  if(error){ toast('Erro ao definir padrão'); return; }
+  await carregarInsumos();
+  renderEmbalagens(insumoId);
+}
+
+// prévia do custo por uso enquanto digita
+function previaEmbalagem(){
+  const el = document.getElementById('emb-previa');
+  if(!el) return;
+  const preco = parseFloat(document.getElementById('emb-preco').value) || 0;
+  const rend = parseFloat(document.getElementById('emb-rendimento').value) || 0;
+  if(!preco || rend <= 0){ el.textContent = ''; return; }
+  const uu = editandoInsumoId ? unidadeUsoDe(editandoInsumoId) : '';
+  el.innerHTML = `Vai custar <strong style="color:var(--marrom)">${fmt(preco/rend)}</strong> por ${uu || 'uso'}.`;
 }
 
 async function excluirInsumo(id){
@@ -2463,9 +2615,10 @@ function renderMateriais(){
             autocomplete="off" style="width:100%;" />
           <div id="ins-dropdown-${idx}" style="display:none; position:absolute; z-index:50; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:200px; overflow-y:auto; width:100%; box-shadow:0 4px 12px rgba(0,0,0,0.1); top:calc(100% + 2px); left:0;"></div>
         </div>
-        <div class="field"><label>Qtd usada</label><input type="number" min="0" step="0.01" value="${m.quantidade||''}" onchange="setQtd(${idx}, this.value)" /></div>
+        <div class="field"><label>Qtd${m.insumo_id && unidadeUsoDe(m.insumo_id) ? ' em ' + unidadeUsoDe(m.insumo_id) : ' usada'}</label><input type="number" min="0" step="0.01" value="${m.quantidade||''}" onchange="setQtd(${idx}, this.value)" /></div>
         <div class="field"><label>Custo</label><input value="${fmt(m.valor_unitario*(m.quantidade||1))}" disabled /></div>
-        <button class="mat-remove" onclick="removeMaterial(${idx})">✕</button>`;
+        <button class="mat-remove" onclick="removeMaterial(${idx})">✕</button>
+        ${m.insumo_id ? linhaEmbalagem(idx, m) : ''}`;
     } else {
       div.innerHTML = `
         <div class="field"><label>Nome</label><input value="${m.nome||''}" onchange="setNome(${idx}, this.value)" placeholder="Ex: Fita de cetim" /></div>
@@ -2506,7 +2659,10 @@ function mostrarDropdownInsumoLista(idx, lista) {
   dropdown.innerHTML = lista.map(i =>
     `<div onclick="selecionarInsumoMat(${idx}, '${i.id}')"
       style="padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--line); font-size:13px;"
-      onmouseover="this.style.background='#FBF6EE'" onmouseout="this.style.background=''">${i.nome} <span style="color:var(--caramel)">${fmt(i.preco)}/${i.unidade}</span></div>`
+      onmouseover="this.style.background='#FBF6EE'" onmouseout="this.style.background=''">${i.nome} <span style="color:var(--caramel)">${(() => {
+        const e = embalagemPadrao(i.id);
+        return e ? fmt(custoPorUso(e)) + '/' + (i.unidade_uso || 'uso') : 'sem embalagem';
+      })()}</span></div>`
   ).join('');
   // fechar ao clicar fora
   setTimeout(() => {
@@ -2528,11 +2684,52 @@ function selecionarInsumoMat(idx, insumoId) {
   if (ins && input) input.value = ins.nome;
 }
 
+// Mostra de qual embalagem sai o custo, e a conta por extenso.
+// Some quando o insumo só tem uma embalagem — nada de clique à toa.
+function linhaEmbalagem(idx, m){
+  const embs = embalagensDe(m.insumo_id);
+  const uu = unidadeUsoDe(m.insumo_id) || 'uso';
+
+  if(!embs.length){
+    return `<div style="grid-column:1/-1; font-size:12px; color:var(--vermelho); margin-top:4px;">
+      Este insumo não tem embalagem cadastrada. Vá em Insumos e cadastre uma, senão o custo fica zerado.
+    </div>`;
+  }
+
+  const atual = embs.find(e => String(e.id) === String(m.embalagem_id)) || embs[0];
+  const conta = `${fmt(atual.preco)} ÷ ${atual.rendimento} = <strong style="color:var(--marrom)">${fmt(custoPorUso(atual))}</strong> por ${uu}`;
+
+  if(embs.length === 1){
+    return `<div style="grid-column:1/-1; font-size:12px; color:var(--texto-suave); margin-top:4px;">
+      ${atual.nome} · ${conta}</div>`;
+  }
+
+  return `<div style="grid-column:1/-1; margin-top:6px;">
+    <label style="display:block; font-size:12px; font-weight:600; color:var(--marrom); margin-bottom:4px;">
+      Saiu de qual embalagem</label>
+    <select onchange="setEmbalagem(${idx}, this.value)" style="width:100%; padding:8px 10px;
+      border:1.5px solid var(--creme-escuro); border-radius:8px; background:var(--creme); font-size:13.5px;">
+      ${embs.map(e => `<option value="${e.id}" ${String(e.id)===String(atual.id)?'selected':''}>
+          ${e.nome} — ${fmt(custoPorUso(e))} por ${uu}</option>`).join('')}
+    </select>
+    <div style="font-size:12px; color:var(--texto-suave); margin-top:4px;">${conta}</div>
+  </div>`;
+}
+
+function setEmbalagem(idx, embId){
+  const emb = embalagensCache.find(e => String(e.id) === String(embId));
+  if(!emb) return;
+  materiais[idx].embalagem_id = emb.id;
+  materiais[idx].embalagem_nome = emb.nome;
+  materiais[idx].valor_unitario = custoPorUso(emb);
+  renderMateriais();
+}
+
 function addMaterial(fixo){
   if(fixo && !insumosCache.length){
     return;
   }
-  materiais.push({insumo_id:null, nome:'', quantidade:1, unidade:'', valor_unitario:0, fixo});
+  materiais.push({insumo_id:null, embalagem_id:null, embalagem_nome:null, nome:'', quantidade:1, unidade:'', valor_unitario:0, fixo});
   renderMateriais();
 }
 function removeMaterial(idx){ materiais.splice(idx,1); renderMateriais(); }
@@ -2599,21 +2796,31 @@ async function salvarComoInsumo(idx){
   if(!m.nome || !m.nome.trim()){ toast('Dá um nome pro item antes de salvar como insumo'); return; }
   if(!confirm(`Salvar "${m.nome}" como insumo fixo (R$ ${m.valor_unitario||0} por ${m.unidade||'unidade'})?`)) return;
   const {data, error} = await sb.from('insumos').insert({
-    nome: m.nome.trim(), preco: m.valor_unitario||0, unidade: m.unidade?.trim() || 'unidade'
+    nome: m.nome.trim(), preco: m.valor_unitario||0,
+    unidade: m.unidade?.trim() || 'unidade', unidade_uso: m.unidade?.trim() || null
   }).select().single();
   if(error){ toast('Erro ao salvar insumo'); console.error(error); return; }
+  const {data: emb} = await sb.from('insumo_embalagens').insert({
+    insumo_id: data.id, nome: m.unidade?.trim() || 'padrão',
+    preco: m.valor_unitario||0, rendimento: 1, padrao: true
+  }).select().single();
   await carregarInsumos();
-  materiais[idx] = { insumo_id: data.id, nome: data.nome, quantidade: 1, unidade: data.unidade, valor_unitario: data.preco, fixo: true };
+  materiais[idx] = { insumo_id: data.id, embalagem_id: emb ? emb.id : null,
+    embalagem_nome: emb ? emb.nome : null, nome: data.nome, quantidade: 1,
+    unidade: data.unidade_uso || data.unidade, valor_unitario: m.valor_unitario||0, fixo: true };
   renderMateriais();
   toast('Insumo cadastrado! Já apliquei aqui neste produto.');
 }
 function setInsumo(idx, id){
   const ins = insumosCache.find(i=>i.id===id);
   if(!ins) return;
+  const emb = embalagemPadrao(ins.id);
   materiais[idx].insumo_id = ins.id;
   materiais[idx].nome = ins.nome;
-  materiais[idx].unidade = ins.unidade;
-  materiais[idx].valor_unitario = ins.preco;
+  materiais[idx].unidade = ins.unidade_uso || ins.unidade;
+  materiais[idx].embalagem_id = emb ? emb.id : null;
+  materiais[idx].embalagem_nome = emb ? emb.nome : null;
+  materiais[idx].valor_unitario = emb ? custoPorUso(emb) : 0;
   renderMateriais();
 }
 function setQtd(idx, v){ materiais[idx].quantidade = parseFloat(v)||0; renderMateriais(); }
