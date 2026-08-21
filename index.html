@@ -51,11 +51,22 @@
   .receipt { background: #fff; border-radius: 4px; box-shadow: 0 6px 20px rgba(59,42,32,0.08); }
   .receipt-edge { height: 8px; width: 100%; background: linear-gradient(135deg, #fff 50%, transparent 50%) 0 0 / 10px 10px, linear-gradient(-135deg, #fff 50%, transparent 50%) 0 0 / 10px 10px; background-repeat: repeat-x; background-color: var(--paper); }
   .receipt-inner { padding: 16px 16px 6px; }
+  .receipt { max-width: 620px; margin-left: auto; margin-right: auto; }
   .receipt-meta { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; gap: 10px; }
   .receipt-meta input { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 600; border: none; background: transparent; width: 60%; border-bottom: 1px dotted var(--line); padding-bottom: 2px; }
   .receipt-meta .date { font-family: 'Space Mono', monospace; font-size: 11px; color: #9A8A78; white-space: nowrap; }
 
   .item-row { display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px dashed var(--line); align-items: start; }
+  /* no lançamento manual não existe checkbox: a primeira coluna é o campo */
+  .item-row-manual { grid-template-columns: 1fr 34px; gap: 8px; padding: 12px 0; align-items: center; }
+  .item-row-manual .item-name { border: 1px solid var(--line); border-radius: 8px; background: #FCFAF5;
+    padding: 10px 12px; font-size: 15px; margin-bottom: 8px; }
+  .item-row-manual .item-name:focus { border-color: var(--caramel); outline: none; }
+  .item-row-manual .item-numbers { flex-wrap: wrap; gap: 6px; }
+  .item-row-manual .item-numbers input { font-size: 15px; padding: 9px 10px; width: 78px; }
+  .item-row-manual .item-cod { font-family: 'Space Mono', monospace; font-size: 12px; padding: 8px 10px;
+    border: 1px dashed var(--line); border-radius: 8px; background: transparent; width: 100%; margin-top: 8px; }
+  .item-row-manual .btn-danger-text { font-size: 18px; padding: 8px; align-self: start; }
   .item-row:last-child { border-bottom: none; }
   .item-row input[type=checkbox] { margin-top: 4px; accent-color: var(--sage); width: 16px; height: 16px; }
   .item-row.excluded { opacity: 0.4; }
@@ -916,7 +927,7 @@
 
         const parsedItems = (result.items || []).map((it, idx) => ({
           id: `${Date.now()}-${idx}`,
-          codigo: it.codigo ? String(it.codigo).trim() : null,
+          codigo: limparCodigo(it.codigo),
           nome: it.nome || "",
           quantidade: it.quantidade ?? 1,
           precoUnitario: it.precoUnitario ?? 0,
@@ -1028,7 +1039,7 @@
         data_iso: dataParaISO(dataAtual), total
       });
       if (e1) { console.error(e1); toast("Erro ao salvar a nota"); return; }
-      const itensParaInserir = selected.map((it) => ({ nota_id: notaId, codigo: it.codigo, nome: it.nome, quantidade: it.quantidade, preco_unitario: it.precoUnitario, preco_total: it.precoTotal }));
+      const itensParaInserir = selected.map((it) => ({ nota_id: notaId, codigo: limparCodigo(it.codigo), nome: it.nome, quantidade: it.quantidade, preco_unitario: it.precoUnitario, preco_total: it.precoTotal }));
       const { error: e2 } = await sb.from("itens_nota").insert(itensParaInserir);
       if (e2) { console.error(e2); toast("Erro ao salvar os itens"); return; }
       resetCapture();
@@ -1088,6 +1099,13 @@
       return null;
     }
 
+    // Código de barras só com dígitos. Espaço invisível, hífen ou letra
+    // colados fazem dois códigos iguais parecerem diferentes e duplicarem.
+    function limparCodigo(txt) {
+      const so = String(txt == null ? "" : txt).replace(/\D+/g, "");
+      return so || null;
+    }
+
     function montarISO(ano, mes, dia) {
       if (!ano || !mes || !dia || mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
       const p = (n) => String(n).padStart(2, "0");
@@ -1109,7 +1127,7 @@
       for (const nota of state.notas) {
         const ts = timestampFromNotaId(nota.id);
         for (const it of nota.items) {
-          const codigo = it.codigo ? String(it.codigo).trim() : "";
+          const codigo = limparCodigo(it.codigo) || "";
           const variantKey = normalize(it.nome);
           if (!variantKey && !codigo) continue;
 
@@ -1351,20 +1369,23 @@
                     style="font-size:11px; border:none; background:transparent; color:#9A8A78; font-family:'Space Mono',monospace; width:130px;" />
                 </div>
                 ${itens.map((it, idx) => `
-                  <div class="item-row">
+                  <div class="item-row item-row-manual">
                     <div class="item-fields">
                       <input class="item-name" value="${esc(it.nome)}" placeholder="Nome do produto"
                         oninput="app.setManualItem(${idx},'nome',this.value)" />
                       <div class="item-numbers">
                         <input type="number" step="1" min="1" value="${it.quantidade}"
-                          oninput="app.setManualItem(${idx},'quantidade',this.value)" style="width:50px;" />
+                          oninput="app.setManualItem(${idx},'quantidade',this.value)" />
                         <span class="x">×</span>
                         <input type="number" step="any" min="0" value="${it.precoUnitario || ''}" placeholder="0,00"
                           oninput="app.setManualItem(${idx},'precoUnitario',this.value)" />
                         <span class="total">${brl(it.quantidade * it.precoUnitario)}</span>
                       </div>
+                      <input class="item-cod" value="${esc(it.codigo || '')}" inputmode="numeric"
+                        placeholder="código de barras (evita duplicar depois)"
+                        oninput="app.setManualItem(${idx},'codigo',this.value)" />
                     </div>
-                    <button class="btn-danger-text" onclick="app.removeManualItem(${idx})" style="margin-left:6px;">✕</button>
+                    <button class="btn-danger-text" onclick="app.removeManualItem(${idx})">✕</button>
                   </div>`).join("")}
                 <button class="btn-link" onclick="app.addManualItem()" style="margin:10px 0; font-size:13px;">+ Adicionar item</button>
                 <div class="receipt-total">
@@ -1601,11 +1622,12 @@
         const [ano, mes, dia] = v.split("-");
         state.dataCompra = `${dia}/${mes}/${ano}`;
       },
-      addManualItem: () => { state.manualItens.push({ nome: "", quantidade: 1, precoUnitario: 0 }); render(); },
+      addManualItem: () => { state.manualItens.push({ nome: "", codigo: "", quantidade: 1, precoUnitario: 0 }); render(); },
       removeManualItem: (idx) => { state.manualItens.splice(idx, 1); render(); },
       setManualItem: (idx, field, value) => {
         if (!state.manualItens[idx]) return;
-        state.manualItens[idx][field] = field === "nome" ? value : Number(value) || 0;
+        state.manualItens[idx][field] = (field === "nome" || field === "codigo")
+          ? value : Number(value) || 0;
         const totEl = document.querySelectorAll(".item-row")[idx]?.querySelector(".total");
         if (totEl) totEl.textContent = brl(state.manualItens[idx].quantidade * state.manualItens[idx].precoUnitario);
       },
@@ -1618,9 +1640,17 @@
         const dataFormatada = `${dia}/${mes}/${ano}`;
         const total = itens.reduce((s, it) => s + it.quantidade * it.precoUnitario, 0);
         const notaId = `nota-${Date.now()}`;
-        const { error: e1 } = await sb.from("notas").insert({ id: notaId, loja, data_compra: dataFormatada, total });
+        const { error: e1 } = await sb.from("notas")
+          .insert({ id: notaId, loja, data_compra: dataFormatada, data_iso: dataRaw, total });
         if (e1) { toast("Erro ao salvar"); console.error(e1); return; }
-        const itensDB = itens.map(it => ({ nota_id: notaId, codigo: null, nome: it.nome, quantidade: it.quantidade, preco_unitario: it.precoUnitario, preco_total: it.quantidade * it.precoUnitario }));
+        const itensDB = itens.map(it => ({
+          nota_id: notaId,
+          codigo: limparCodigo(it.codigo),
+          nome: it.nome,
+          quantidade: it.quantidade,
+          preco_unitario: it.precoUnitario,
+          preco_total: it.quantidade * it.precoUnitario
+        }));
         const { error: e2 } = await sb.from("itens_nota").insert(itensDB);
         if (e2) { toast("Erro ao salvar itens"); console.error(e2); return; }
         resetCapture();
