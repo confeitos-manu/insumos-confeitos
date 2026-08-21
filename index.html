@@ -313,6 +313,7 @@
   <button class="tab-btn active" data-view="produtos">Produtos</button>
   <button class="tab-btn" data-view="vendas">Vendas</button>
   <button class="tab-btn" data-view="insumos">Insumos (preço base)</button>
+<button class="tab-btn" data-view="duplicados">Duplicados</button>
   <button class="tab-btn" data-view="perdas">Perdas</button>
   <button class="tab-btn" data-view="custos">Custos da Loja</button>
 </nav>
@@ -327,7 +328,17 @@
     </div>
     <div class="row" style="margin-bottom:14px;">
       <button class="btn btn-ghost btn-sm" id="btn-toggle-arquivados" onclick="toggleArquivados()">🗑️ Ver arquivados</button>
+      <button class="btn btn-ghost btn-sm" id="btn-selecionar" onclick="toggleSelecaoProdutos()">☑️ Selecionar</button>
       <button class="btn btn-ghost btn-sm" onclick="exportarProdutosCSV()">⬇️ Exportar CSV</button>
+    </div>
+    <div id="barra-selecao" style="display:none; position:sticky; top:0; z-index:20; background:var(--creme);
+      border:1.5px solid var(--creme-escuro); border-radius:10px; padding:10px 12px; margin-bottom:12px;
+      align-items:center; justify-content:space-between; gap:10px;">
+      <span id="selecao-contador" style="font-size:13.5px; font-weight:600;">Nenhum selecionado</span>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="selecionarTodosProdutos()">Todos</button>
+        <button class="btn btn-primary btn-sm" id="btn-arquivar-lote" onclick="arquivarSelecionados()">Arquivar</button>
+      </div>
     </div>
     <div id="produtos-lista"></div>
   </section>
@@ -559,13 +570,9 @@
           <label>Nome</label>
           <input id="ins-nome" placeholder="Ex: Ferrero Rocher" />
         </div>
-        <div class="field">
-          <label>O que você gasta na receita</label>
-          <input id="ins-unidade-uso" placeholder="Ex: bombom" />
-        </div>
       </div>
-      <p class="hint" style="margin-top:-6px;">É isso que a quantidade da receita vai contar. Bombom, bloco,
-        metro, grama. O preço não fica aqui — fica em cada embalagem, logo abaixo.</p>
+      <p class="hint" style="margin-top:-6px;">O preço não fica aqui — fica em cada embalagem, logo abaixo.</p>
+      <input type="hidden" id="ins-unidade-uso" value="" />
       <div class="field">
         <label>Código da nota fiscal (opcional)</label>
         <input id="ins-codigo" placeholder="Ex: 7896931614341" />
@@ -614,7 +621,18 @@
     </div>
   </section>
 
-  <!-- ================= CUSTOS DA LOJA ================= -->
+  <!-- ================= DUPLICADOS ================= -->
+<section id="view-duplicados" class="view">
+  <div class="card">
+    <h2>🧹 Insumos repetidos</h2>
+    <p class="sub">Agrupei os que parecem ser a mesma coisa. Por enquanto é só para você conferir —
+      ainda não tem botão de unificar, porque isso mexe nas receitas dos produtos já salvos.</p>
+    <div id="dup-resumo"></div>
+  </div>
+  <div id="dup-lista"></div>
+</section>
+
+<!-- ================= CUSTOS DA LOJA ================= -->
   <!-- ================= PERDAS (custos invisíveis) ================= -->
   <section id="view-perdas" class="view">
     <div class="card">
@@ -757,6 +775,7 @@
       mergeNomeInput: "",
       enviarModalOpen: false,
       enviarNomeAlvo: "",
+      enviarCodigoAlvo: null,
       enviarPrecoOriginal: 0,
       enviarDivisor: 1,
       enviarPrecoFinal: 0,
@@ -1201,8 +1220,9 @@
         </div>`;
     }
 
-    function abrirModalEnviar(nome, preco) {
+    function abrirModalEnviar(nome, preco, codigo) {
       state.enviarNomeAlvo = nome;
+      state.enviarCodigoAlvo = codigo || null;
       state.enviarPrecoOriginal = preco;
       state.enviarDivisor = 1;
       state.enviarPrecoFinal = preco;
@@ -1225,24 +1245,45 @@
       state.enviarPrecoFinal = Number(v) || 0;
     }
     async function confirmarEnvio() {
-      await enviarParaPrecificacao(state.enviarNomeAlvo, state.enviarPrecoFinal);
+      await enviarParaPrecificacao(state.enviarNomeAlvo, state.enviarPrecoFinal, state.enviarCodigoAlvo);
       state.enviarModalOpen = false;
       render();
     }
-    async function enviarParaPrecificacao(nome, preco) {
+    // O código de barras é a identidade do insumo. O nome varia a cada
+    // leitura de nota; o código não. Procura por código primeiro, cai no
+    // nome só quando não há código, e sempre grava o código encontrado —
+    // assim o próximo envio acha por código e não duplica.
+    async function enviarParaPrecificacao(nome, preco, codigo) {
       try {
-        const { data: existentes, error: e1 } = await sbPrecificacao
-          .from("insumos").select("id").ilike("nome", nome.trim());
-        if (e1) throw e1;
-        if (existentes && existentes.length > 0) {
-          const { error: e2 } = await sbPrecificacao.from("insumos")
-            .update({ preco, updated_at: new Date().toISOString() }).eq("id", existentes[0].id);
-          if (e2) throw e2;
-          toast(`Preço de "${nome}" atualizado na precificação!`);
+        const cod = (codigo || "").trim() || null;
+        let alvo = null;
+
+        if (cod) {
+          const { data, error } = await sbPrecificacao
+            .from("insumos").select("id, nome, codigo").eq("codigo", cod).limit(1);
+          if (error) throw error;
+          if (data && data.length) alvo = data[0];
+        }
+
+        if (!alvo) {
+          const { data, error } = await sbPrecificacao
+            .from("insumos").select("id, nome, codigo").ilike("nome", nome.trim()).limit(1);
+          if (error) throw error;
+          if (data && data.length) alvo = data[0];
+        }
+
+        if (alvo) {
+          const patch = { preco, updated_at: new Date().toISOString() };
+          if (cod && !alvo.codigo) patch.codigo = cod;   // adota o código que faltava
+          const { error } = await sbPrecificacao.from("insumos").update(patch).eq("id", alvo.id);
+          if (error) throw error;
+          toast(cod && !alvo.codigo
+            ? `"${alvo.nome}" atualizado e agora com código de barras.`
+            : `Preço de "${alvo.nome}" atualizado na precificação!`);
         } else {
-          const { error: e3 } = await sbPrecificacao.from("insumos")
-            .insert({ nome: nome.trim(), preco, unidade: "unidade" });
-          if (e3) throw e3;
+          const { error } = await sbPrecificacao.from("insumos")
+            .insert({ nome: nome.trim(), preco, unidade: "unidade", codigo: cod });
+          if (error) throw error;
           toast(`"${nome}" cadastrado na precificação!`);
         }
       } catch (err) {
@@ -1526,7 +1567,7 @@
                     <div class="variantes-chips">
                       ${p.variantes.map((v) => `<span class="chip">${esc(v.nome)}<button onclick="event.stopPropagation(); app.removerVariante('${v.key}')" title="desfazer união">×</button></span>`).join("")}
                     </div>` : ""}
-                  <button class="btn-enviar-precificacao" onclick="event.stopPropagation(); app.abrirModalEnviar('${esc(p.nome).replace(/'/g, "\\'")}', ${p.ultimoPreco})">↗ enviar pro app de precificação</button>
+                  <button class="btn-enviar-precificacao" onclick="event.stopPropagation(); app.abrirModalEnviar('${esc(p.nome).replace(/'/g, "\\'")}', ${p.ultimoPreco}, '${esc(p.codigo || "")}')">↗ enviar pro app de precificação</button>
                 </div>` : ""}
             </div>`;
         }
@@ -1739,11 +1780,157 @@ function mostrar(view){
   if(view==='perdas') carregarPerdas();
   if(view==='vendas') carregarVendas();
   if(view==='custos') carregarCustos();
+  if(view==='duplicados') carregarDuplicados();
   window.scrollTo(0,0);
 }
 document.querySelectorAll('.tab-btn').forEach(b=>{
   b.addEventListener('click', ()=>mostrar(b.dataset.view));
 });
+
+/* ============================================================
+   DUPLICADOS
+   ============================================================ */
+
+// Quebra o nome em palavras significativas: fora acento, pontuação,
+// palavras de embalagem, qualquer coisa com número e palavras de 1-2 letras.
+// "CHOC FERRERO T3 37G" -> [choc, ferrero]
+const RUIDO = new Set(['un','und','unid','unidade','unidades','kg','g','gr','mg','ml','l','cx','caixa',
+  'pct','pacote','pacotes','com','de','do','da','das','dos','e','c','p','para','tipo','ref']);
+
+function palavrasDe(txt){
+  return String(txt || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w && w.length > 2 && !/\d/.test(w) && !RUIDO.has(w));
+}
+
+function semelhanca(a, b){
+  if(!a.size || !b.size) return 0;
+  let comuns = 0;
+  for(const w of a) if(b.has(w)) comuns++;
+  return comuns / (a.size + b.size - comuns);
+}
+
+// Dois níveis: prováveis (mesmo código, mesmas palavras ou um contido no
+// outro) e possíveis (dividem uma palavra forte, para você olhar).
+function acharDuplicados(){
+  const itens = insumosCache.map(i => ({ ins: i, p: new Set(palavrasDe(i.nome)) }));
+  const grupos = [];
+  const usado = new Set();
+
+  // 1) mesmo código de barras: certeza
+  const porCodigo = new Map();
+  for(const it of itens){
+    const cod = (it.ins.codigo || '').trim();
+    if(!cod) continue;
+    if(!porCodigo.has(cod)) porCodigo.set(cod, []);
+    porCodigo.get(cod).push(it.ins);
+  }
+  for(const [cod, lista] of porCodigo){
+    if(lista.length < 2) continue;
+    grupos.push({ nivel: 'provável', tipo: 'mesmo código ' + cod, itens: lista });
+    lista.forEach(i => usado.add(String(i.id)));
+  }
+
+  // 2) palavras iguais ou uma lista contida na outra
+  for(let a = 0; a < itens.length; a++){
+    if(usado.has(String(itens[a].ins.id)) || !itens[a].p.size) continue;
+    const bloco = [itens[a].ins];
+    for(let b = a + 1; b < itens.length; b++){
+      if(usado.has(String(itens[b].ins.id)) || !itens[b].p.size) continue;
+      const sim = semelhanca(itens[a].p, itens[b].p);
+      const contido = [...itens[b].p].every(w => itens[a].p.has(w)) ||
+                      [...itens[a].p].every(w => itens[b].p.has(w));
+      if(sim >= 0.6 || contido) bloco.push(itens[b].ins);
+    }
+    if(bloco.length > 1){
+      grupos.push({ nivel: 'provável', tipo: 'nome equivalente', itens: bloco });
+      bloco.forEach(i => usado.add(String(i.id)));
+    }
+  }
+
+  // 3) dividem uma palavra forte: suspeita, você decide.
+  // Aqui o item já agrupado ainda pode entrar como comparação — senão um
+  // nome torto do OCR ("CHOC FERRERO T3 37G") ficaria órfão e invisível.
+  const sobraram = itens.filter(it => !usado.has(String(it.ins.id)) && it.p.size);
+  for(let a = 0; a < sobraram.length; a++){
+    if(usado.has(String(sobraram[a].ins.id))) continue;
+    const bloco = [sobraram[a].ins];
+    for(const outro of itens){
+      if(String(outro.ins.id) === String(sobraram[a].ins.id)) continue;
+      if(bloco.some(x => String(x.id) === String(outro.ins.id))) continue;
+      const forte = [...sobraram[a].p].some(w => w.length >= 5 && outro.p.has(w));
+      if(forte) bloco.push(outro.ins);
+    }
+    if(bloco.length > 1){
+      grupos.push({ nivel: 'possível', tipo: 'dividem uma palavra', itens: bloco });
+      usado.add(String(sobraram[a].ins.id));
+    }
+  }
+
+  grupos.sort((x, y) => (x.nivel === y.nivel ? 0 : x.nivel === 'provável' ? -1 : 1));
+  return grupos;
+}
+
+async function carregarDuplicados(){
+  if(!insumosCache.length) await carregarInsumos();
+  const grupos = acharDuplicados();
+  const resumo = document.getElementById('dup-resumo');
+  const wrap = document.getElementById('dup-lista');
+  const semCodigo = insumosCache.filter(i => !(i.codigo || '').trim()).length;
+  const repetidos = grupos.reduce((n, g) => n + g.itens.length, 0);
+
+  resumo.innerHTML = `
+    <div class="result-grid">
+      <div class="result-box"><div class="lbl">Insumos no total</div><div class="val">${insumosCache.length}</div></div>
+      <div class="result-box"><div class="lbl">Envolvidos em repetição</div><div class="val">${repetidos}</div></div>
+      <div class="result-box"><div class="lbl">Grupos repetidos</div><div class="val">${grupos.length}</div></div>
+      <div class="result-box"><div class="lbl">Sem código de barras</div><div class="val">${semCodigo}</div></div>
+    </div>
+    ${semCodigo ? `<p class="hint">Os sem código são os que voltam a duplicar no próximo envio de nota.</p>` : ''}`;
+
+  if(!grupos.length){
+    wrap.innerHTML = `<div class="card"><div class="empty"><span class="ic">✨</span>
+      Nenhuma repetição encontrada.</div></div>`;
+    return;
+  }
+
+  wrap.innerHTML = grupos.map(g => `
+    <div class="card">
+      <div class="row" style="justify-content:space-between; align-items:baseline;">
+        <h2 style="margin:0; font-size:16px;">${esc2(g.itens[0].nome)}</h2>
+        <span class="pill" style="${g.nivel === 'provável'
+                ? 'background:var(--vermelho-bg); color:var(--vermelho);'
+                : 'background:var(--creme-escuro); color:var(--texto-suave);'}">
+                ${g.nivel} · ${g.itens.length} cadastros · ${esc2(g.tipo)}</span>
+      </div>
+      <table class="list" style="margin-top:10px;">
+        <thead><tr><th>Nome cadastrado</th><th>Código</th><th>Embalagens</th><th></th></tr></thead>
+        <tbody>
+          ${g.itens.map(i => {
+            const embs = embalagensDe(i.id);
+            return `<tr>
+              <td>${esc2(i.nome)}</td>
+              <td style="font-family:'Space Mono',monospace; font-size:11px;">${i.codigo ? esc2(i.codigo) : '—'}</td>
+              <td style="font-size:12px;">${embs.length
+                ? embs.map(e => `${esc2(e.nome)} ${fmt(e.preco)}`).join('<br>')
+                : '<span style="color:var(--vermelho)">nenhuma</span>'}</td>
+              <td style="text-align:right;">
+                <button class="btn btn-ghost btn-sm" onclick="mostrar('insumos'); setTimeout(()=>editarInsumo('${i.id}'), 60)">Abrir</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
+}
+
+function esc2(t){
+  return String(t == null ? '' : t).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
 /* ============================================================
    INSUMOS
@@ -1762,7 +1949,7 @@ function custoPorUso(emb){
 // e o que foi pago no pacote inteiro (referência pra conferir na mão).
 function doisPrecos(emb, uu){
   if(!emb) return '';
-  return `<strong style="color:var(--marrom)">${fmt(custoPorUso(emb))}</strong> por ${uu || 'uso'}`
+  return `<strong style="color:var(--marrom)">${fmt(custoPorUso(emb))}</strong> ${uu ? 'por ' + uu : 'cada'}`
        + ` <span style="color:var(--texto-suave)">· ${emb.nome} — ${fmt(emb.preco)}`
        + (Number(emb.rendimento) !== 1 ? ` (${emb.rendimento} un.)` : '') + `</span>`;
 }
@@ -1801,16 +1988,15 @@ function renderInsumosTabela() {
     const tr = document.createElement('tr');
     const embs = embalagensDe(ins.id);
     const uu = unidadeUsoDe(ins.id);
-    const faltaUnidade = !uu;
     const resumo = embs.length
       ? embs.map(e => `<div style="font-size:12px; padding:1px 0;">${doisPrecos(e, uu)}</div>`).join('')
       : `<div style="font-size:12px; color:var(--vermelho);">sem embalagem cadastrada</div>`;
     tr.innerHTML = `
       <td>
         <div>${ins.nome}</div>
-        ${faltaUnidade
-          ? `<div style="font-size:11px; color:var(--vermelho);">falta dizer o que você gasta (bombom, bloco, metro…)</div>`
-          : `<div style="font-size:11px; color:var(--texto-suave);">gasta em: ${uu}</div>`}
+        ${ins.codigo
+          ? `<div style="font-size:11px; color:var(--texto-suave); font-family:'Space Mono',monospace;">${ins.codigo}</div>`
+          : `<div style="font-size:11px; color:var(--vermelho);">sem código de barras — risco de duplicar</div>`}
       </td>
       <td colspan="2">${resumo}</td>
       <td style="text-align:right; white-space:nowrap;">
@@ -2000,7 +2186,7 @@ function previaEmbalagem(){
   const rend = parseFloat(document.getElementById('emb-rendimento').value) || 0;
   if(!preco || rend <= 0){ el.textContent = ''; return; }
   const uu = editandoInsumoId ? unidadeUsoDe(editandoInsumoId) : '';
-  el.innerHTML = `Vai custar <strong style="color:var(--marrom)">${fmt(preco/rend)}</strong> por ${uu || 'uso'}.`;
+  el.innerHTML = `Vai custar <strong style="color:var(--marrom)">${fmt(preco/rend)}</strong> ${uu ? 'por ' + uu : 'cada'}.`;
 }
 
 async function excluirInsumo(id){
@@ -2449,10 +2635,80 @@ async function carregarProdutos(){
   renderProdutos(produtosAtivos());
 }
 
+let modoSelecao = false;
+let produtosSelecionados = [];
+
+function toggleSelecaoProdutos(){
+  modoSelecao = !modoSelecao;
+  produtosSelecionados = [];
+  document.getElementById('btn-selecionar').textContent = modoSelecao ? '✕ Cancelar' : '☑️ Selecionar';
+  const barra = document.getElementById('barra-selecao');
+  barra.style.display = modoSelecao ? 'flex' : 'none';
+  atualizarContadorSelecao();
+  renderProdutos(produtosAtivos());
+}
+
+function toggleProdutoSelecionado(id){
+  const i = produtosSelecionados.indexOf(id);
+  if(i >= 0) produtosSelecionados.splice(i, 1);
+  else produtosSelecionados.push(id);
+  atualizarContadorSelecao();
+  renderProdutos(produtosAtivos(), null, true);
+}
+
+function selecionarTodosProdutos(){
+  const visiveis = produtosAtivos().map(p => String(p.id));
+  produtosSelecionados = produtosSelecionados.length === visiveis.length ? [] : visiveis;
+  atualizarContadorSelecao();
+  renderProdutos(produtosAtivos(), null, true);
+}
+
+function atualizarContadorSelecao(){
+  const n = produtosSelecionados.length;
+  const el = document.getElementById('selecao-contador');
+  if(el) el.textContent = n === 0 ? 'Nenhum selecionado'
+    : n + (n === 1 ? ' produto selecionado' : ' produtos selecionados');
+  const btn = document.getElementById('btn-arquivar-lote');
+  if(btn){
+    btn.disabled = n === 0;
+    btn.textContent = mostrandoArquivados ? 'Restaurar' : 'Arquivar';
+  }
+}
+
+// Arquivar é reversível — vai pra lixeira e volta em dois toques.
+// Por isso não pergunta nada: só faz e avisa onde encontrar.
+async function arquivarProduto(id){
+  const {error} = await sb.from('produtos')
+    .update({ativo:false, updated_at:new Date().toISOString()}).eq('id', id);
+  if(error){ toast('Erro ao arquivar'); return; }
+  toast('Arquivado · está em "Ver arquivados"');
+  await carregarProdutos();
+}
+
+async function arquivarSelecionados(){
+  if(!produtosSelecionados.length) return;
+  const restaurando = mostrandoArquivados;
+  const {error} = await sb.from('produtos')
+    .update({ativo: restaurando, updated_at:new Date().toISOString()})
+    .in('id', produtosSelecionados);
+  if(error){ toast('Erro ao ' + (restaurando ? 'restaurar' : 'arquivar')); console.error(error); return; }
+  const n = produtosSelecionados.length;
+  modoSelecao = false;
+  produtosSelecionados = [];
+  document.getElementById('btn-selecionar').textContent = '☑️ Selecionar';
+  document.getElementById('barra-selecao').style.display = 'none';
+  await carregarProdutos();
+  toast(n + (restaurando ? ' restaurado' : ' arquivado') + (n > 1 ? 's' : ''));
+}
+
 function produtosAtivos(){ return produtosCache.filter(p => mostrandoArquivados ? p.ativo===false : p.ativo!==false); }
 
 function toggleArquivados(){
   mostrandoArquivados = !mostrandoArquivados;
+  modoSelecao = false;
+  produtosSelecionados = [];
+  document.getElementById('btn-selecionar').textContent = '☑️ Selecionar';
+  document.getElementById('barra-selecao').style.display = 'none';
   document.getElementById('btn-toggle-arquivados').textContent = mostrandoArquivados ? '← Ver ativos' : '🗑️ Ver arquivados';
   document.getElementById('btn-nova-precificacao').style.display = mostrandoArquivados ? 'none' : 'block';
   document.getElementById('produtos-busca').value = '';
@@ -2500,9 +2756,28 @@ function renderProdutos(lista, termoBusca){
         <div class="row" style="margin-top:10px;">
           <button class="btn btn-ghost btn-sm" onclick="restaurarProduto('${p.id}')">↩️ Restaurar</button>
           <button class="btn btn-danger btn-sm" onclick="excluirDefinitivo('${p.id}')">🗑️ Excluir de vez</button>
-        </div>` : ''}
+        </div>` : `
+        <div class="row" style="margin-top:10px; justify-content:flex-end;">
+          <button class="btn btn-ghost btn-sm" onclick="arquivarProduto('${p.id}')">🗑️ Arquivar</button>
+        </div>`}
       `;
-    if(!mostrandoArquivados){
+
+    if(modoSelecao){
+      const marcado = produtosSelecionados.includes(String(p.id));
+      card.style.cursor = 'pointer';
+      card.style.borderColor = marcado ? 'var(--marrom)' : '';
+      card.style.background = marcado ? 'var(--creme)' : '';
+      const marca = document.createElement('div');
+      marca.style.cssText = 'position:absolute; top:10px; right:10px; width:22px; height:22px;'
+        + 'border-radius:50%; display:flex; align-items:center; justify-content:center;'
+        + 'font-size:13px; border:2px solid ' + (marcado ? 'var(--marrom)' : 'var(--creme-escuro)')
+        + '; background:' + (marcado ? 'var(--marrom)' : 'transparent') + '; color:#fff;';
+      marca.textContent = marcado ? '✓' : '';
+      card.style.position = 'relative';
+      card.appendChild(marca);
+      card.querySelectorAll('button').forEach(b => b.style.display = 'none');
+      card.addEventListener('click', ()=> toggleProdutoSelecionado(String(p.id)));
+    } else if(!mostrandoArquivados){
       card.style.cursor = 'pointer';
       card.addEventListener('click', (e)=>{ if(e.target.tagName!=='BUTTON') verProduto(p.id); });
     }
@@ -2657,7 +2932,7 @@ function renderMateriais(){
             autocomplete="off" style="width:100%;" />
           <div id="ins-dropdown-${idx}" style="display:none; position:absolute; z-index:50; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:200px; overflow-y:auto; width:100%; box-shadow:0 4px 12px rgba(0,0,0,0.1); top:calc(100% + 2px); left:0;"></div>
         </div>
-        <div class="field"><label>Qtd${m.insumo_id && unidadeUsoDe(m.insumo_id) ? ' em ' + unidadeUsoDe(m.insumo_id) : ' usada'}</label><input type="number" min="0" step="0.01" value="${m.quantidade||''}" onchange="setQtd(${idx}, this.value)" /></div>
+        <div class="field"><label>Qtd${m.insumo_id && unidadeUsoDe(m.insumo_id) ? ' em ' + unidadeUsoDe(m.insumo_id) : ''}</label><input type="number" min="0" step="0.01" value="${m.quantidade||''}" onchange="setQtd(${idx}, this.value)" /></div>
         <div class="field"><label>Custo</label><input value="${fmt(m.valor_unitario*(m.quantidade||1))}" disabled /></div>
         <button class="mat-remove" onclick="removeMaterial(${idx})">✕</button>
         ${m.insumo_id ? linhaEmbalagem(idx, m) : ''}`;
@@ -2703,7 +2978,7 @@ function mostrarDropdownInsumoLista(idx, lista) {
       style="padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--line); font-size:13px;"
       onmouseover="this.style.background='#FBF6EE'" onmouseout="this.style.background=''">${i.nome} <span style="color:var(--caramel)">${(() => {
         const e = embalagemPadrao(i.id);
-        return e ? fmt(custoPorUso(e)) + '/' + (i.unidade_uso || 'uso') + ' · pacote ' + fmt(e.preco) : 'sem embalagem';
+        return e ? fmt(custoPorUso(e)) + (i.unidade_uso ? '/' + i.unidade_uso : ' cada') + ' · pacote ' + fmt(e.preco) : 'sem embalagem';
       })()}</span></div>`
   ).join('');
   // fechar ao clicar fora
@@ -2757,7 +3032,7 @@ function linhaEmbalagem(idx, m){
     <select onchange="setEmbalagem(${idx}, this.value)" style="width:100%; padding:8px 10px;
       border:1.5px solid var(--creme-escuro); border-radius:8px; background:var(--creme); font-size:13.5px;">
       ${embs.map(e => `<option value="${e.id}" ${String(e.id)===String(atual.id)?'selected':''}>
-          ${e.nome} — ${fmt(custoPorUso(e))}/${uu} · pacote ${fmt(e.preco)}</option>`).join('')}
+          ${e.nome} — ${fmt(custoPorUso(e))}${uu ? '/' + uu : ' cada'} · pacote ${fmt(e.preco)}</option>`).join('')}
     </select>
     <div style="font-size:12px; margin-top:4px;">${doisPrecos(atual, uu)}${linhaTotal}</div>
   </div>`;
@@ -3064,10 +3339,9 @@ async function duplicarProduto(id){
 }
 
 async function excluirProduto(id){
-  if(!confirm('Arquivar este produto? Ele some da lista, mas fica guardado na lixeira — dá pra restaurar depois.')) return;
   const {error} = await sb.from('produtos').update({ativo:false, updated_at:new Date().toISOString()}).eq('id', id);
   if(error){ toast('Erro ao arquivar'); return; }
-  toast('Produto arquivado');
+  toast('Arquivado · está em "Ver arquivados"');
   mostrar('produtos');
 }
 
