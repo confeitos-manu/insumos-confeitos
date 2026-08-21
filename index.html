@@ -1182,12 +1182,23 @@
       const finalNome = state.mergeNomeInput.trim();
       if (!finalNome) return;
       const produtos = produtosAgrupados().filter((p) => state.selecionados.includes(p.groupKey));
-      const rows = [];
+      // Produtos de nome igual geram a mesma variant_key. Mandar a chave
+      // repetida faz o Postgres recusar a instrução inteira (ON CONFLICT não
+      // pode mexer na mesma linha duas vezes), então junta antes de enviar.
+      const porChave = new Map();
       for (const p of produtos) {
-        for (const v of p.variantes) rows.push({ variant_key: v.key, nome_canonico: finalNome });
+        for (const v of p.variantes) porChave.set(v.key, { variant_key: v.key, nome_canonico: finalNome });
       }
-      const { error } = await sb.from("produto_aliases").upsert(rows);
-      if (error) { console.error(error); toast("Erro ao unir produtos"); return; }
+      const rows = Array.from(porChave.values());
+      if (!rows.length) { toast("Nada para unir"); return; }
+
+      const { error } = await sb.from("produto_aliases")
+        .upsert(rows, { onConflict: "variant_key" });
+      if (error) {
+        console.error(error);
+        toast("Erro ao unir: " + (error.message || error.code || "desconhecido"));
+        return;
+      }
       state.selecionados = [];
       state.selectMode = false;
       state.mergeModalOpen = false;
