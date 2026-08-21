@@ -823,6 +823,13 @@
     function esc(str) {
       return String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     }
+    // Valor que vai DENTRO de uma string JS num atributo onclick.
+    // Sem isso, um apóstrofo no nome ("Bib's") fecha a string no meio e
+    // quebra o card inteiro com SyntaxError — o clique para de funcionar.
+    function jsStr(v) {
+      return esc(String(v == null ? "" : v).replace(/\\/g, "\\\\").replace(/'/g, "\\'"));
+    }
+
     function toast(msg) {
       const el = document.createElement("div");
       el.className = "toast";
@@ -1636,7 +1643,7 @@
           const selecionado = state.selecionados.includes(p.groupKey);
           html += `
             <div class="produto-card ${state.selectMode ? "selecionavel" : ""} ${selecionado ? "selecionado" : ""}"
-                 onclick="${state.selectMode ? `app.toggleSelecionado('${p.groupKey}')` : `app.toggleProdutoAberto('${p.groupKey}')`}">
+                 onclick="${state.selectMode ? `app.toggleSelecionado('${jsStr(p.groupKey)}')` : `app.toggleProdutoAberto('${jsStr(p.groupKey)}')`}">
               <div class="produto-head">
                 ${state.selectMode ? `<input type="checkbox" class="produto-checkbox" ${selecionado ? "checked" : ""} disabled tabindex="-1" />` : ""}
                 <div style="flex:1">
@@ -1659,10 +1666,10 @@
                   ${p.ocorrencias.map((o) => `<div class="line"><span>${esc(o.loja)} · ${esc(o.data)}</span><span class="price">${brl(o.precoUnitario)}</span></div>`).join("")}
                   ${(p.variantes.length > 1 || (p.codigos || []).length > 1) ? `
                     <div class="variantes-chips">
-                      ${p.variantes.map((v) => `<span class="chip">${esc(v.nome)}<button onclick="event.stopPropagation(); app.removerVariante('${v.key}')" title="separar de novo">×</button></span>`).join("")}
-                      ${(p.codigos || []).map((c) => `<span class="chip" style="font-family:'Space Mono',monospace;">${esc(c.cod)}<button onclick="event.stopPropagation(); app.removerVariante('${c.key}')" title="separar de novo">×</button></span>`).join("")}
+                      ${p.variantes.map((v) => `<span class="chip">${esc(v.nome)}<button onclick="event.stopPropagation(); app.removerVariante('${jsStr(v.key)}')" title="separar de novo">×</button></span>`).join("")}
+                      ${(p.codigos || []).map((c) => `<span class="chip" style="font-family:'Space Mono',monospace;">${esc(c.cod)}<button onclick="event.stopPropagation(); app.removerVariante('${jsStr(c.key)}')" title="separar de novo">×</button></span>`).join("")}
                     </div>` : ""}
-                  <button class="btn-enviar-precificacao" onclick="event.stopPropagation(); app.abrirModalEnviar('${esc(p.nome).replace(/'/g, "\\'")}', ${p.ultimoPreco}, '${esc(p.codigo || "")}', '${esc(p.ultimaData || "")}')">↗ enviar pro app de precificação</button>
+                  <button class="btn-enviar-precificacao" onclick="event.stopPropagation(); app.abrirModalEnviar('${jsStr(p.nome)}', ${p.ultimoPreco}, '${jsStr(p.codigo || "")}', '${jsStr(p.ultimaData || "")}')">↗ enviar pro app de precificação</button>
                 </div>` : ""}
             </div>`;
         }
